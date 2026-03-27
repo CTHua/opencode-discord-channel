@@ -1,0 +1,248 @@
+import { describe, it, expect, mock, beforeEach } from "bun:test"
+import { createInboundBridge } from "./bridge-inbound"
+import type { DiscordMessage } from "./types"
+
+function createMockState(
+  overrides: Partial<{
+    isConnected: boolean
+    sessionId: string | null
+    channelId: string | null
+    ownerId: string | null
+    botUserId: string | null
+    currentAgent: string | null
+  }> = {},
+) {
+  const defaults = {
+    isConnected: true,
+    sessionId: "ses_test",
+    channelId: "ch_test",
+    ownerId: "owner_id_123",
+    botUserId: "bot_id_456",
+    currentAgent: null,
+    ...overrides,
+  }
+
+  return {
+    isConnected: () => defaults.isConnected,
+    getSessionId: () => defaults.sessionId,
+    getChannelId: () => defaults.channelId,
+    getOwnerId: () => defaults.ownerId,
+    getBotUserId: () => defaults.botUserId,
+    getCurrentAgent: () => defaults.currentAgent,
+    setCurrentAgent: mock((_name: string) => {}),
+    connect: mock((_config: any) => {}),
+    disconnect: mock(() => {}),
+    setBotUserId: mock((_id: string) => {}),
+    getState: () => ({ ...defaults }),
+  }
+}
+
+function createMockDiscordClient() {
+  let messageCallback: ((msg: DiscordMessage) => void | Promise<void>) | null = null
+  let buttonCallback:
+    | ((customId: string, userId: string, username: string) => void | Promise<void>)
+    | null = null
+
+  return {
+    onMessage: (cb: (msg: DiscordMessage) => void | Promise<void>) => {
+      messageCallback = cb
+    },
+    onButtonInteraction: (
+      cb: (customId: string, userId: string, username: string) => void | Promise<void>,
+    ) => {
+      buttonCallback = cb
+    },
+    triggerMessage: (msg: DiscordMessage) => messageCallback?.(msg),
+    triggerButton: (customId: string, userId: string, username: string) =>
+      buttonCallback?.(customId, userId, username),
+    sendMessage: mock(async () => {}),
+    startTyping: mock(async () => {}),
+  }
+}
+
+const ownerMessage: DiscordMessage = {
+  content: "hello bot",
+  authorId: "owner_id_123",
+  username: "OwnerUser",
+  channelId: "ch_test",
+  messageId: "msg_001",
+}
+
+describe("createInboundBridge", () => {
+  let sessionPrompt: ReturnType<typeof mock>
+  let onAgentSwitch: ReturnType<typeof mock>
+
+  beforeEach(() => {
+    sessionPrompt = mock(async (_params: any) => {})
+    onAgentSwitch = mock((_agentName: string) => {})
+  })
+
+  describe("given owner message in correct channel", () => {
+    it("forwards message to session with context tags", async () => {
+      const state = createMockState()
+      const discord = createMockDiscordClient()
+      createInboundBridge({
+        discordClient: discord as any,
+        state: state as any,
+        sessionPrompt,
+        onAgentSwitch,
+      })
+
+      await discord.triggerMessage(ownerMessage)
+
+      expect(sessionPrompt).toHaveBeenCalledTimes(1)
+      const callArgs = sessionPrompt.mock.calls[0][0]
+      expect(callArgs.parts[0].text).toContain("<discord")
+      expect(callArgs.parts[0].text).toContain("ch_test")
+      expect(callArgs.parts[0].text).toContain("OwnerUser")
+      expect(callArgs.parts[0].text).toContain("hello bot")
+    })
+
+    it("includes agent in prompt when currentAgent is set", async () => {
+      const state = createMockState({ currentAgent: "oracle" })
+      const discord = createMockDiscordClient()
+      createInboundBridge({
+        discordClient: discord as any,
+        state: state as any,
+        sessionPrompt,
+        onAgentSwitch,
+      })
+
+      await discord.triggerMessage(ownerMessage)
+
+      const callArgs = sessionPrompt.mock.calls[0][0]
+      expect(callArgs.agent).toBe("oracle")
+    })
+
+    it("does not include agent when currentAgent is null", async () => {
+      const state = createMockState({ currentAgent: null })
+      const discord = createMockDiscordClient()
+      createInboundBridge({
+        discordClient: discord as any,
+        state: state as any,
+        sessionPrompt,
+        onAgentSwitch,
+      })
+
+      await discord.triggerMessage(ownerMessage)
+
+      const callArgs = sessionPrompt.mock.calls[0][0]
+      expect(callArgs.agent).toBeUndefined()
+    })
+  })
+
+  describe("given non-owner message", () => {
+    it("ignores messages from non-owners", async () => {
+      const state = createMockState()
+      const discord = createMockDiscordClient()
+      createInboundBridge({
+        discordClient: discord as any,
+        state: state as any,
+        sessionPrompt,
+        onAgentSwitch,
+      })
+
+      await discord.triggerMessage({ ...ownerMessage, authorId: "random_user_999" })
+
+      expect(sessionPrompt).not.toHaveBeenCalled()
+    })
+  })
+
+  describe("given wrong channel message", () => {
+    it("ignores messages from wrong channels", async () => {
+      const state = createMockState()
+      const discord = createMockDiscordClient()
+      createInboundBridge({
+        discordClient: discord as any,
+        state: state as any,
+        sessionPrompt,
+        onAgentSwitch,
+      })
+
+      await discord.triggerMessage({ ...ownerMessage, channelId: "wrong_channel" })
+
+      expect(sessionPrompt).not.toHaveBeenCalled()
+    })
+  })
+
+  describe("given bot self-message", () => {
+    it("ignores messages from bot itself", async () => {
+      const state = createMockState()
+      const discord = createMockDiscordClient()
+      createInboundBridge({
+        discordClient: discord as any,
+        state: state as any,
+        sessionPrompt,
+        onAgentSwitch,
+      })
+
+      await discord.triggerMessage({ ...ownerMessage, authorId: "bot_id_456" })
+
+      expect(sessionPrompt).not.toHaveBeenCalled()
+    })
+  })
+
+  describe("given disconnected state", () => {
+    it("ignores messages when not connected", async () => {
+      const state = createMockState({ isConnected: false })
+      const discord = createMockDiscordClient()
+      createInboundBridge({
+        discordClient: discord as any,
+        state: state as any,
+        sessionPrompt,
+        onAgentSwitch,
+      })
+
+      await discord.triggerMessage(ownerMessage)
+
+      expect(sessionPrompt).not.toHaveBeenCalled()
+    })
+  })
+
+  describe("agent switch button interaction", () => {
+    it("calls onAgentSwitch with extracted agent name from owner", async () => {
+      const state = createMockState()
+      const discord = createMockDiscordClient()
+      createInboundBridge({
+        discordClient: discord as any,
+        state: state as any,
+        sessionPrompt,
+        onAgentSwitch,
+      })
+
+      await discord.triggerButton("agent_switch_oracle", "owner_id_123", "OwnerUser")
+
+      expect(onAgentSwitch).toHaveBeenCalledWith("oracle")
+    })
+
+    it("ignores button from non-owner", async () => {
+      const state = createMockState()
+      const discord = createMockDiscordClient()
+      createInboundBridge({
+        discordClient: discord as any,
+        state: state as any,
+        sessionPrompt,
+        onAgentSwitch,
+      })
+
+      await discord.triggerButton("agent_switch_oracle", "random_999", "RandomUser")
+
+      expect(onAgentSwitch).not.toHaveBeenCalled()
+    })
+
+    it("ignores non-agent-switch buttons", async () => {
+      const state = createMockState()
+      const discord = createMockDiscordClient()
+      createInboundBridge({
+        discordClient: discord as any,
+        state: state as any,
+        sessionPrompt,
+        onAgentSwitch,
+      })
+
+      await discord.triggerButton("some_other_button", "owner_id_123", "OwnerUser")
+
+      expect(onAgentSwitch).not.toHaveBeenCalled()
+    })
+  })
+})
