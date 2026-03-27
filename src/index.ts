@@ -1,13 +1,20 @@
 import type { Plugin } from "@opencode-ai/plugin"
 import { createDiscordClient } from "./discord-client"
 import { createConnectionState } from "./state"
+import { createInboundBridge } from "./bridge-inbound"
+import { createOutboundBridge } from "./bridge-outbound"
+import { createSystemPromptHook } from "./system-prompt"
+import { buildAgentEmbed, buildAgentButtons } from "./agent-display"
 import type { DiscordClientWrapper } from "./discord-client"
 import type { ConnectionStateManager } from "./state"
+import type { AgentInfo } from "./types"
 
 let activeDiscordClient: DiscordClientWrapper | null = null
 let activeState: ConnectionStateManager | null = null
 
-const plugin: Plugin = async (_ctx) => {
+let activeEventHandler: ((event: any) => Promise<void>) | null = null
+
+const plugin: Plugin = async (ctx) => {
   if (activeDiscordClient) {
     await activeDiscordClient.disconnect().catch(() => {})
     activeDiscordClient = null
@@ -16,11 +23,37 @@ const plugin: Plugin = async (_ctx) => {
     activeState.disconnect()
     activeState = null
   }
+  activeEventHandler = null
 
   const discordClient = createDiscordClient()
   const state = createConnectionState()
   activeDiscordClient = discordClient
   activeState = state
+
+  async function fetchAgents(): Promise<AgentInfo[]> {
+    try {
+      const result = await ctx.client.app.agents()
+      const agents = result.data ?? []
+      return agents.map((a: any) => ({
+        name: a.name,
+        mode: (a.mode ?? "primary") as AgentInfo["mode"],
+        color: a.color,
+        description: a.description,
+      }))
+    } catch {
+      return []
+    }
+  }
+
+  const outboundHandler = createOutboundBridge({
+    discordClient,
+    state,
+    agentDisplay: { buildAgentEmbed, buildAgentButtons },
+    fetchAgents,
+  })
+  activeEventHandler = outboundHandler
+
+  const systemPromptHook = createSystemPromptHook(state)
 
   return {
     async config(config) {
@@ -88,6 +121,40 @@ const plugin: Plugin = async (_ctx) => {
           })
           state.setBotUserId(discordClient.getBotUserId() ?? "")
 
+          createInboundBridge({
+            discordClient,
+            state,
+            sessionPrompt: async (params) => {
+              await (ctx.client.session.promptAsync as any)
+                ({
+                  sessionID: params.sessionID,
+                  agent: params.agent,
+                  parts: params.parts as any,
+                })
+                .catch(async () => {
+                  await (ctx.client.session.prompt as any)({
+                    sessionID: params.sessionID,
+                    parts: params.parts as any,
+                  })
+                })
+            },
+            onAgentSwitch: async (agentName) => {
+              state.setCurrentAgent(agentName)
+              await (ctx.client.session.promptAsync as any)
+                ({
+                  sessionID: state.getSessionId()!,
+                  agent: agentName,
+                  parts: [
+                    {
+                      type: "text",
+                      text: `(Agent switched to ${agentName} via Discord)`,
+                    },
+                  ] as any,
+                })
+                .catch(() => {})
+            },
+          })
+
           output.parts = [
             {
               type: "text",
@@ -134,10 +201,14 @@ const plugin: Plugin = async (_ctx) => {
     },
 
     async event({ event }) {
-      void event
+      if (activeEventHandler) {
+        await activeEventHandler(event)
+      }
     },
 
-    async "experimental.chat.system.transform"(_input, _output) {},
+    async "experimental.chat.system.transform"(input, output) {
+      await systemPromptHook(input, output)
+    },
   }
 }
 
