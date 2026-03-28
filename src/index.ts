@@ -10,14 +10,7 @@ import type { ConnectionStateManager } from "./state"
 import type { AgentInfo } from "./types"
 import { textPart } from "./types"
 
-type SessionPromptClient = {
-  prompt: (args: { sessionID: string; parts: unknown[] }) => Promise<unknown>
-  promptAsync?: (args: {
-    sessionID: string
-    agent?: string
-    parts: unknown[]
-  }) => Promise<unknown>
-}
+
 
 let activeDiscordClient: DiscordClientWrapper | null = null
 let activeState: ConnectionStateManager | null = null
@@ -37,32 +30,43 @@ const plugin: Plugin = async (ctx) => {
 
   const discordClient = createDiscordClient()
   const state = createConnectionState()
-  const sessionClient = ctx.client.session as unknown as SessionPromptClient
   activeDiscordClient = discordClient
   activeState = state
+
+  const fs = require("fs")
+  const logFile = "/tmp/opencode-discord-channel.log"
+  function log(msg: string) {
+    try { fs.appendFileSync(logFile, `${new Date().toISOString()} ${msg}\n`) } catch {}
+  }
 
   async function promptSession(params: {
     sessionID: string
     agent?: string
     parts: unknown[]
   }): Promise<void> {
-    try {
-      if (sessionClient.promptAsync) {
-        await sessionClient.promptAsync(params)
-        return
-      }
-    } catch (err) {
-      console.error("[discord-channel] promptAsync failed, trying prompt:", err)
-    }
+    log(`[promptSession] sessionID=${params.sessionID}`)
+
+    const body: Record<string, unknown> = { parts: params.parts }
+    if (params.agent) body.agent = params.agent
 
     try {
-      await sessionClient.prompt({
-        sessionID: params.sessionID,
-        parts: params.parts,
+      const result = await (ctx.client as any).session.promptAsync({
+        path: { id: params.sessionID },
+        body,
       })
+      log(`[promptSession] result: ${JSON.stringify(result).slice(0, 500)}`)
     } catch (err) {
-      console.error("[discord-channel] prompt also failed:", err)
-      throw err
+      log(`[promptSession] promptAsync threw: ${err}`)
+      try {
+        const result = await (ctx.client as any).session.prompt({
+          path: { id: params.sessionID },
+          body: { parts: params.parts },
+        })
+        log(`[promptSession] prompt fallback: ${JSON.stringify(result).slice(0, 500)}`)
+      } catch (err2) {
+        log(`[promptSession] prompt also threw: ${err2}`)
+        throw err2
+      }
     }
   }
 

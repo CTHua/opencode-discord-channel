@@ -71,6 +71,7 @@ export function createOutboundBridge(
       if (part.type !== "text") return
       const partKey = part.id ?? part.messageID
       if (!partKey || typeof part.text !== "string") return
+      if (part.text.startsWith("<discord channel=")) return
 
       textBuffer.set(partKey, part.text)
       return
@@ -88,17 +89,18 @@ export function createOutboundBridge(
       await discordClient.sendMessage(channelId, allText)
       textBuffer.clear()
 
-      try {
-        const agents = await getCachedAgents()
-        const currentAgent = state.getCurrentAgent() ?? (agents[0]?.name ?? "")
-        const embed = display.buildAgentEmbed(currentAgent)
-        const rows = display.buildAgentButtons(agents, currentAgent)
-        if (rows.length > 0) {
-          await discordClient.sendButtons(channelId, embed, rows)
-        }
-      } catch (err) {
-        console.error("[discord-channel] agent display failed:", err)
-      }
+      // TODO: re-enable agent embed/buttons after UX refinement
+      // try {
+      //   const agents = await getCachedAgents()
+      //   const currentAgent = state.getCurrentAgent() ?? (agents[0]?.name ?? "")
+      //   const embed = display.buildAgentEmbed(currentAgent)
+      //   const rows = display.buildAgentButtons(agents, currentAgent)
+      //   if (rows.length > 0) {
+      //     await discordClient.sendButtons(channelId, embed, rows)
+      //   }
+      // } catch (err) {
+      //   console.error("[discord-channel] agent display failed:", err)
+      // }
 
       return
     }
