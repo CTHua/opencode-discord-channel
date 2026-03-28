@@ -1,5 +1,6 @@
 import { Client, GatewayIntentBits } from "discord.js"
 import type { EmbedBuilder, ActionRowBuilder, ButtonBuilder } from "discord.js"
+import { TextChannel } from "discord.js"
 import { splitMessage } from "./message-splitter"
 import type { DiscordMessage } from "./types"
 
@@ -13,7 +14,7 @@ export function createDiscordClient() {
     | ((customId: string, userId: string, username: string) => void)
     | null = null
 
-  async function getChannel(channelId: string) {
+  async function getChannel(channelId: string): Promise<TextChannel> {
     if (!discordClient) throw new Error("Discord client not connected")
     let channel = discordClient.channels.cache.get(channelId)
     if (!channel) {
@@ -22,14 +23,17 @@ export function createDiscordClient() {
     if (!channel || !channel.isTextBased()) {
       throw new Error(`Channel ${channelId} not found or not text-based`)
     }
-    return channel as unknown as {
-      send: (content: any) => Promise<any>
-      sendTyping: () => Promise<void>
-    }
+    return channel as TextChannel
   }
 
   return {
     async connect(token: string): Promise<void> {
+      if (discordClient) {
+        await discordClient.destroy()
+        discordClient = null
+        botUserId = null
+      }
+
       discordClient = new Client({
         intents: [
           GatewayIntentBits.Guilds,

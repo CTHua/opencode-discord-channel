@@ -151,6 +151,25 @@ describe("createOutboundBridge", () => {
     expect(discord.sendMessage).not.toHaveBeenCalled()
   })
 
+  describe("given reasoning part", () => {
+    it("ignores reasoning parts", async () => {
+      await handler({
+        type: "message.part.updated",
+        properties: {
+          part: {
+            id: "part1",
+            sessionID: "ses_main",
+            messageID: "msg1",
+            type: "reasoning",
+            text: "thinking...",
+          },
+        },
+      })
+      await handler({ type: "session.idle", properties: { sessionID: "ses_main" } })
+      expect(discord.sendMessage).not.toHaveBeenCalled()
+    })
+  })
+
   it("ignores non-text parts like reasoning", async () => {
     await handler({
       type: "message.part.updated",

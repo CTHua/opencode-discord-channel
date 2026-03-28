@@ -84,6 +84,17 @@ describe("splitMessage", () => {
     })
   })
 
+  describe("given inline backticks near boundary", () => {
+    it("does not corrupt inline backticks", () => {
+      const s = "text with `inline code` more " + "x".repeat(2000)
+      const result = splitMessage(s)
+      result.forEach((chunk) => {
+        expect(chunk.length).toBeLessThanOrEqual(2000)
+      })
+      expect(result[0]).toContain("`inline code`")
+    })
+  })
+
   describe("given custom maxLength", () => {
     it("respects custom limit", () => {
       const result = splitMessage("x".repeat(100), 50)

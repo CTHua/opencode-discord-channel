@@ -8,6 +8,16 @@ import { buildAgentEmbed, buildAgentButtons } from "./agent-display"
 import type { DiscordClientWrapper } from "./discord-client"
 import type { ConnectionStateManager } from "./state"
 import type { AgentInfo } from "./types"
+import { textPart } from "./types"
+
+type SessionPromptClient = {
+  prompt: (args: { sessionID: string; parts: unknown[] }) => Promise<unknown>
+  promptAsync?: (args: {
+    sessionID: string
+    agent?: string
+    parts: unknown[]
+  }) => Promise<unknown>
+}
 
 let activeDiscordClient: DiscordClientWrapper | null = null
 let activeState: ConnectionStateManager | null = null
@@ -27,8 +37,30 @@ const plugin: Plugin = async (ctx) => {
 
   const discordClient = createDiscordClient()
   const state = createConnectionState()
+  const sessionClient = ctx.client.session as unknown as SessionPromptClient
   activeDiscordClient = discordClient
   activeState = state
+
+  async function promptSession(params: {
+    sessionID: string
+    agent?: string
+    parts: unknown[]
+  }): Promise<void> {
+    if (sessionClient.promptAsync) {
+      await sessionClient.promptAsync(params).catch(async () => {
+        await sessionClient.prompt({
+          sessionID: params.sessionID,
+          parts: params.parts,
+        })
+      })
+      return
+    }
+
+    await sessionClient.prompt({
+      sessionID: params.sessionID,
+      parts: params.parts,
+    })
+  }
 
   async function fetchAgents(): Promise<AgentInfo[]> {
     try {
@@ -81,10 +113,9 @@ const plugin: Plugin = async (ctx) => {
         const token = process.env.DISCORD_BOT_TOKEN
         if (!token) {
           output.parts = [
-            {
-              type: "text",
-              text: "Error: DISCORD_BOT_TOKEN environment variable is not set. Please set it before connecting.",
-            } as any,
+            textPart(
+              "Error: DISCORD_BOT_TOKEN environment variable is not set. Please set it before connecting.",
+            ),
           ]
           return
         }
@@ -92,10 +123,9 @@ const plugin: Plugin = async (ctx) => {
         const channelId = args.trim()
         if (!channelId) {
           output.parts = [
-            {
-              type: "text",
-              text: "Error: Please provide a Discord channel ID. Usage: /dc:connect <channel_id>",
-            } as any,
+            textPart(
+              "Error: Please provide a Discord channel ID. Usage: /dc:connect <channel_id>",
+            ),
           ]
           return
         }
@@ -103,10 +133,9 @@ const plugin: Plugin = async (ctx) => {
         const ownerId = process.env.DISCORD_OWNER_ID
         if (!ownerId) {
           output.parts = [
-            {
-              type: "text",
-              text: "Error: DISCORD_OWNER_ID environment variable is not set. Only the bot owner can interact.",
-            } as any,
+            textPart(
+              "Error: DISCORD_OWNER_ID environment variable is not set. Only the bot owner can interact.",
+            ),
           ]
           return
         }
@@ -125,50 +154,30 @@ const plugin: Plugin = async (ctx) => {
             discordClient,
             state,
             sessionPrompt: async (params) => {
-              await (ctx.client.session.promptAsync as any)
-                ({
-                  sessionID: params.sessionID,
-                  agent: params.agent,
-                  parts: params.parts as any,
-                })
-                .catch(async () => {
-                  await (ctx.client.session.prompt as any)({
-                    sessionID: params.sessionID,
-                    parts: params.parts as any,
-                  })
-                })
+              await promptSession({
+                sessionID: params.sessionID,
+                agent: params.agent,
+                parts: params.parts.map((part) => textPart(part.text)),
+              })
             },
             onAgentSwitch: async (agentName) => {
               state.setCurrentAgent(agentName)
-              await (ctx.client.session.promptAsync as any)
-                ({
-                  sessionID: state.getSessionId()!,
-                  agent: agentName,
-                  parts: [
-                    {
-                      type: "text",
-                      text: `(Agent switched to ${agentName} via Discord)`,
-                    },
-                  ] as any,
-                })
-                .catch(() => {})
+              await promptSession({
+                sessionID: state.getSessionId()!,
+                agent: agentName,
+                parts: [textPart(`(Agent switched to ${agentName} via Discord)`)],
+              }).catch(() => {})
             },
           })
 
           output.parts = [
-            {
-              type: "text",
-              text: `Discord bridge connected to channel ${channelId}. Messages from this channel will appear here.`,
-            } as any,
+            textPart(
+              `Discord bridge connected to channel ${channelId}. Messages from this channel will appear here.`,
+            ),
           ]
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : "Unknown error"
-          output.parts = [
-            {
-              type: "text",
-              text: `Failed to connect Discord bot: ${msg}`,
-            } as any,
-          ]
+          output.parts = [textPart(`Failed to connect Discord bot: ${msg}`)]
         }
         return
       }
@@ -176,12 +185,7 @@ const plugin: Plugin = async (ctx) => {
       if (command === "dc:disconnect") {
         await discordClient.disconnect().catch(() => {})
         state.disconnect()
-        output.parts = [
-          {
-            type: "text",
-            text: "Discord bridge disconnected.",
-          } as any,
-        ]
+        output.parts = [textPart("Discord bridge disconnected.")]
         return
       }
 
@@ -190,12 +194,7 @@ const plugin: Plugin = async (ctx) => {
         const statusText = s.connected
           ? `Connected to channel ${s.channelId} (session: ${s.sessionId}, agent: ${s.currentAgent ?? "default"})`
           : "Not connected."
-        output.parts = [
-          {
-            type: "text",
-            text: `Discord bridge status: ${statusText}`,
-          } as any,
-        ]
+        output.parts = [textPart(`Discord bridge status: ${statusText}`)]
         return
       }
     },

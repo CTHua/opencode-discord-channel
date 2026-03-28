@@ -23,6 +23,7 @@ type OpenCodeEvent =
       type: "message.part.updated"
       properties?: {
         part?: {
+          id?: string
           sessionID?: string
           messageID?: string
           type?: string
@@ -45,6 +46,17 @@ export function createOutboundBridge(
   const { discordClient, state, fetchAgents } = deps
   const display = deps.agentDisplay ?? { buildAgentEmbed, buildAgentButtons }
   const textBuffer = new Map<string, string>()
+  let cachedAgents: AgentInfo[] | null = null
+  let cachedAt = 0
+  const CACHE_TTL = 30_000
+
+  async function getCachedAgents(): Promise<AgentInfo[]> {
+    const now = Date.now()
+    if (cachedAgents && now - cachedAt < CACHE_TTL) return cachedAgents
+    cachedAgents = await fetchAgents()
+    cachedAt = now
+    return cachedAgents
+  }
 
   return async function handleEvent(event: OpenCodeEvent): Promise<void> {
     if (!state.isConnected()) return
@@ -57,9 +69,10 @@ export function createOutboundBridge(
       if (!part) return
       if (part.sessionID !== connectedSessionId) return
       if (part.type !== "text") return
-      if (!part.messageID || typeof part.text !== "string") return
+      const partKey = part.id ?? part.messageID
+      if (!partKey || typeof part.text !== "string") return
 
-      textBuffer.set(part.messageID, part.text)
+      textBuffer.set(partKey, part.text)
       return
     }
 
@@ -78,14 +91,15 @@ export function createOutboundBridge(
       await discordClient.sendMessage(channelId, allText)
 
       try {
-        const agents = await fetchAgents()
+        const agents = await getCachedAgents()
         const currentAgent = state.getCurrentAgent() ?? (agents[0]?.name ?? "")
         const embed = display.buildAgentEmbed(currentAgent)
         const rows = display.buildAgentButtons(agents, currentAgent)
         if (rows.length > 0) {
           await discordClient.sendButtons(channelId, embed, rows)
         }
-      } catch {
+      } catch (err) {
+        console.error("[discord-channel] agent display failed:", err)
       }
 
       return

@@ -1,6 +1,14 @@
 import type { PluginInput } from "@opencode-ai/plugin"
+import type { Part } from "@opencode-ai/sdk"
 
 export type { PluginInput }
+
+// The SDK's Hooks use Part[] (output format with required id/sessionID/messageID)
+// but plugins construct TextPartInput (input format with optional fields).
+// This helper centralizes the unavoidable cast at the SDK type boundary.
+export function textPart(text: string): Part {
+  return { type: "text", text } as unknown as Part
+}
 
 export interface ConnectionState {
   connected: boolean

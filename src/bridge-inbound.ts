@@ -29,8 +29,8 @@ export function createInboundBridge(deps: InboundBridgeDeps): void {
   discordClient.onMessage(async (msg) => {
     if (!state.isConnected()) return
     if (msg.channelId !== state.getChannelId()) return
-    if (msg.authorId !== state.getOwnerId()) return
     if (msg.authorId === state.getBotUserId()) return
+    if (msg.authorId !== state.getOwnerId()) return
 
     const sessionId = state.getSessionId()
     if (!sessionId) return
