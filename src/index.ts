@@ -95,9 +95,16 @@ const plugin: Plugin = async (ctx) => {
     async config(config) {
       config.command = config.command ?? {}
       config.command["dc:connect"] = {
-        template: "Connect Discord bot to channel $ARGUMENTS",
-        description:
-          "(plugin: discord-channel) Connect Discord bridge to a channel",
+        template: "[opencode-discord-channel plugin: bridge connected to $ARGUMENTS]",
+        description: "(plugin: discord-channel) Connect Discord bridge to a channel",
+      }
+      config.command["dc:disconnect"] = {
+        template: "[opencode-discord-channel plugin: bridge disconnected]",
+        description: "(plugin: discord-channel) Disconnect Discord bridge",
+      }
+      config.command["dc:status"] = {
+        template: "[opencode-discord-channel plugin: status check]",
+        description: "(plugin: discord-channel) Show Discord bridge connection status",
       }
       config.command["dc:disconnect"] = {
         template: "Disconnect Discord bridge",
