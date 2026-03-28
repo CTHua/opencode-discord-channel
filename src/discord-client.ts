@@ -75,7 +75,7 @@ export function createDiscordClient() {
           30_000,
         )
 
-        discordClient!.once("ready", () => {
+        discordClient!.once("clientReady", () => {
           clearTimeout(timeout)
           botUserId = discordClient!.user?.id ?? null
           resolve()

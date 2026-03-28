@@ -55,7 +55,11 @@ export function createInboundBridge(deps: InboundBridgeDeps): void {
       params.agent = currentAgent
     }
 
-    await sessionPrompt(params)
+    try {
+      await sessionPrompt(params)
+    } catch (err) {
+      console.error("[discord-channel] failed to inject Discord message into session:", err)
+    }
   })
 
   discordClient.onButtonInteraction(async (customId, userId) => {

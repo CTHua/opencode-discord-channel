@@ -46,20 +46,24 @@ const plugin: Plugin = async (ctx) => {
     agent?: string
     parts: unknown[]
   }): Promise<void> {
-    if (sessionClient.promptAsync) {
-      await sessionClient.promptAsync(params).catch(async () => {
-        await sessionClient.prompt({
-          sessionID: params.sessionID,
-          parts: params.parts,
-        })
-      })
-      return
+    try {
+      if (sessionClient.promptAsync) {
+        await sessionClient.promptAsync(params)
+        return
+      }
+    } catch (err) {
+      console.error("[discord-channel] promptAsync failed, trying prompt:", err)
     }
 
-    await sessionClient.prompt({
-      sessionID: params.sessionID,
-      parts: params.parts,
-    })
+    try {
+      await sessionClient.prompt({
+        sessionID: params.sessionID,
+        parts: params.parts,
+      })
+    } catch (err) {
+      console.error("[discord-channel] prompt also failed:", err)
+      throw err
+    }
   }
 
   async function fetchAgents(): Promise<AgentInfo[]> {

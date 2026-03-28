@@ -68,7 +68,7 @@ const { createDiscordClient } = await import("./discord-client")
 
 function simulateReady() {
   mockClientOnce.mockImplementation((_event: string, cb: any) => {
-    if (_event === "ready") setTimeout(cb, 0)
+    if (_event === "clientReady" || _event === "ready") setTimeout(cb, 0)
     return mockClientInstance
   })
 }
