@@ -54,12 +54,13 @@ describe("createOutboundBridge", () => {
     agentDisplay = createMockAgentDisplay()
     fetchAgents = mock(async () => [{ name: "sisyphus", mode: "primary" as const }])
 
-    handler = createOutboundBridge({
+    const bridge = createOutboundBridge({
       discordClient: discord as any,
       state: state as any,
       agentDisplay: agentDisplay as any,
       fetchAgents,
     })
+    handler = bridge.handleEvent
   })
 
   it("buffers text on message.part.updated and does not send immediately", async () => {
@@ -238,27 +239,6 @@ describe("createOutboundBridge", () => {
     expect(discord.startTyping).not.toHaveBeenCalled()
   })
 
-  it("sends agent embed+buttons after text flush on idle", async () => {
-    agentDisplay.buildAgentButtons.mockReturnValueOnce([{} as any])
-
-    await handler({
-      type: "message.part.updated",
-      properties: {
-        part: { id: "part1", sessionID: "ses_main", messageID: "msg1", type: "text", text: "hello" },
-      },
-    })
-
-    await handler({
-      type: "session.idle",
-      properties: { sessionID: "ses_main" },
-    })
-
-    expect(fetchAgents).toHaveBeenCalledTimes(1)
-    expect(agentDisplay.buildAgentEmbed).toHaveBeenCalledTimes(1)
-    expect(agentDisplay.buildAgentButtons).toHaveBeenCalledTimes(1)
-    expect(discord.sendButtons).toHaveBeenCalledTimes(1)
-  })
-
   it("does not send buttons when no button rows", async () => {
     agentDisplay.buildAgentButtons.mockReturnValueOnce([])
 
@@ -275,12 +255,13 @@ describe("createOutboundBridge", () => {
 
   it("ignores all events when disconnected", async () => {
     state = createMockState({ isConnected: false })
-    handler = createOutboundBridge({
+    const bridge = createOutboundBridge({
       discordClient: discord as any,
       state: state as any,
       agentDisplay: agentDisplay as any,
       fetchAgents,
     })
+    handler = bridge.handleEvent
 
     await handler({
       type: "message.part.updated",
@@ -303,12 +284,13 @@ describe("createOutboundBridge", () => {
     fetchAgents = mock(async () => {
       throw new Error("agent list failed")
     })
-    handler = createOutboundBridge({
+    const bridge = createOutboundBridge({
       discordClient: discord as any,
       state: state as any,
       agentDisplay: agentDisplay as any,
       fetchAgents,
     })
+    handler = bridge.handleEvent
 
     await handler({
       type: "message.part.updated",

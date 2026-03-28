@@ -39,6 +39,8 @@ const plugin: Plugin = async (ctx) => {
     try { fs.appendFileSync(logFile, `${new Date().toISOString()} ${msg}\n`) } catch {}
   }
 
+  let outbound: ReturnType<typeof createOutboundBridge> | null = null
+
   async function promptSession(params: {
     sessionID: string
     agent?: string
@@ -54,6 +56,8 @@ const plugin: Plugin = async (ctx) => {
         path: { id: params.sessionID },
         body,
       })
+      const messageID = result?.data?.id ?? result?.data?.messageID
+      if (messageID && outbound) outbound.trackInjectedMessage(messageID)
       log(`[promptSession] result: ${JSON.stringify(result).slice(0, 500)}`)
     } catch (err) {
       log(`[promptSession] promptAsync threw: ${err}`)
@@ -85,13 +89,13 @@ const plugin: Plugin = async (ctx) => {
     }
   }
 
-  const outboundHandler = createOutboundBridge({
+  outbound = createOutboundBridge({
     discordClient,
     state,
     agentDisplay: { buildAgentEmbed, buildAgentButtons },
     fetchAgents,
   })
-  activeEventHandler = outboundHandler
+  activeEventHandler = outbound.handleEvent
 
   const systemPromptHook = createSystemPromptHook(state)
 

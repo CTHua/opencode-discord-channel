@@ -78,7 +78,7 @@ describe("createInboundBridge", () => {
   })
 
   describe("given owner message in correct channel", () => {
-    it("forwards message to session with context tags", async () => {
+    it("forwards message content as plain text", async () => {
       const state = createMockState()
       const discord = createMockDiscordClient()
       createInboundBridge({
@@ -92,10 +92,7 @@ describe("createInboundBridge", () => {
 
       expect(sessionPrompt).toHaveBeenCalledTimes(1)
       const callArgs = sessionPrompt.mock.calls[0][0]
-      expect(callArgs.parts[0].text).toContain("<discord")
-      expect(callArgs.parts[0].text).toContain("ch_test")
-      expect(callArgs.parts[0].text).toContain("OwnerUser")
-      expect(callArgs.parts[0].text).toContain("hello bot")
+      expect(callArgs.parts[0].text).toBe("hello bot")
     })
 
     it("includes agent in prompt when currentAgent is set", async () => {
@@ -130,8 +127,8 @@ describe("createInboundBridge", () => {
       expect(callArgs.agent).toBeUndefined()
     })
 
-    it("escapes XML special chars in channel/user attributes", async () => {
-      const state = createMockState({ channelId: 'ch&<"test' })
+    it("forwards raw content without wrapping", async () => {
+      const state = createMockState()
       const discord = createMockDiscordClient()
       createInboundBridge({
         discordClient: discord as any,
@@ -142,13 +139,11 @@ describe("createInboundBridge", () => {
 
       await discord.triggerMessage({
         ...ownerMessage,
-        channelId: 'ch&<"test',
-        username: 'Owner&<"User',
+        content: "test <with> special & chars",
       })
 
       const text = sessionPrompt.mock.calls[0][0].parts[0].text as string
-      expect(text).toContain('channel="ch&amp;&lt;&quot;test"')
-      expect(text).toContain('user="Owner&amp;&lt;&quot;User"')
+      expect(text).toBe("test <with> special & chars")
     })
   })
 

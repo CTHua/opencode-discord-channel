@@ -56,7 +56,7 @@ export function createInboundBridge(deps: InboundBridgeDeps): void {
     const sessionId = state.getSessionId()
     if (!sessionId) { log("[filter] no sessionId"); return }
 
-    const formattedText = `<discord channel="${escapeXml(msg.channelId)}" user="${escapeXml(msg.username)}">\n${msg.content}\n</discord>`
+    const formattedText = msg.content
 
     const currentAgent = state.getCurrentAgent()
     const params: Parameters<SessionPromptFn>[0] = {

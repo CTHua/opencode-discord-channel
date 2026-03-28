@@ -56,7 +56,7 @@ describe("Integration: full message round-trip", () => {
     const fetchAgents = mock(async () => [
       { name: "sisyphus", mode: "primary" as const },
     ])
-    const outboundHandler = createOutboundBridge({
+    const outbound = createOutboundBridge({
       discordClient: discord as any,
       state,
       fetchAgents,
@@ -74,9 +74,8 @@ describe("Integration: full message round-trip", () => {
     const promptArgs = sessionPrompt.mock.calls[0][0]
     expect(promptArgs.sessionID).toBe("ses_main")
     expect(promptArgs.parts[0].text).toContain("hello world")
-    expect(promptArgs.parts[0].text).toContain("<discord")
 
-    await outboundHandler({
+    await outbound.handleEvent({
       type: "message.part.updated",
       properties: {
         part: {
@@ -87,7 +86,7 @@ describe("Integration: full message round-trip", () => {
         },
       },
     })
-    await outboundHandler({
+    await outbound.handleEvent({
       type: "session.idle",
       properties: { sessionID: "ses_main" },
     })
@@ -174,13 +173,13 @@ describe("Integration: full message round-trip", () => {
 
     const discord = createFullMockDiscordClient()
     const fetchAgents = mock(async () => [])
-    const outboundHandler = createOutboundBridge({
+    const outbound = createOutboundBridge({
       discordClient: discord as any,
       state,
       fetchAgents,
     })
 
-    await outboundHandler({
+    await outbound.handleEvent({
       type: "session.status",
       properties: { sessionID: "ses_main", status: { type: "busy" } },
     })
