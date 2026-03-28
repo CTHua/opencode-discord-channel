@@ -78,6 +78,18 @@ describe("buildAgentButtons", () => {
       const totalButtons = rows.reduce((sum, row) => sum + row.toJSON().components.length, 0)
       expect(totalButtons).toBe(8)
     })
+
+    it("caps rows at 5 (max 25 buttons)", () => {
+      const manyAgents: AgentInfo[] = Array.from({ length: 30 }, (_, i) => ({
+        name: `agent${i}`,
+        mode: "primary" as const,
+      }))
+      const rows = buildAgentButtons(manyAgents, "agent0")
+      const totalButtons = rows.reduce((sum, row) => sum + row.toJSON().components.length, 0)
+
+      expect(rows).toHaveLength(5)
+      expect(totalButtons).toBe(25)
+    })
   })
 
   describe("given current agent", () => {

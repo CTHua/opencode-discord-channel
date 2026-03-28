@@ -129,6 +129,27 @@ describe("createInboundBridge", () => {
       const callArgs = sessionPrompt.mock.calls[0][0]
       expect(callArgs.agent).toBeUndefined()
     })
+
+    it("escapes XML special chars in channel/user attributes", async () => {
+      const state = createMockState({ channelId: 'ch&<"test' })
+      const discord = createMockDiscordClient()
+      createInboundBridge({
+        discordClient: discord as any,
+        state: state as any,
+        sessionPrompt,
+        onAgentSwitch,
+      })
+
+      await discord.triggerMessage({
+        ...ownerMessage,
+        channelId: 'ch&<"test',
+        username: 'Owner&<"User',
+      })
+
+      const text = sessionPrompt.mock.calls[0][0].parts[0].text as string
+      expect(text).toContain('channel="ch&amp;&lt;&quot;test"')
+      expect(text).toContain('user="Owner&amp;&lt;&quot;User"')
+    })
   })
 
   describe("given non-owner message", () => {

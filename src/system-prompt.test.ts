@@ -1,10 +1,15 @@
 import { describe, it, expect } from "bun:test"
 import { createSystemPromptHook } from "./system-prompt"
 
-function createMockState(connected: boolean, channelId: string | null = "ch_123") {
+function createMockState(
+  connected: boolean,
+  channelId: string | null = "ch_123",
+  sessionId: string | null = "ses_main",
+) {
   return {
     isConnected: () => connected,
     getChannelId: () => channelId,
+    getSessionId: () => sessionId,
   }
 }
 
@@ -37,6 +42,16 @@ describe("createSystemPromptHook", () => {
       expect(injected.toLowerCase()).not.toContain("token")
       expect(injected.toLowerCase()).not.toContain("secret")
       expect(injected.toLowerCase()).not.toContain("password")
+    })
+
+    it("does not inject prompt for different sessionID", async () => {
+      const state = createMockState(true, "ch_123", "ses_main")
+      const hook = createSystemPromptHook(state as any)
+      const output: { system: string[] } = { system: ["existing"] }
+
+      await hook({ sessionID: "ses_other" } as any, output)
+
+      expect(output.system).toEqual(["existing"])
     })
   })
 

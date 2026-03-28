@@ -1,13 +1,17 @@
 import type { ConnectionStateManager } from "./state"
 
 export function createSystemPromptHook(
-  state: Pick<ConnectionStateManager, "isConnected" | "getChannelId">,
+  state: Pick<
+    ConnectionStateManager,
+    "isConnected" | "getChannelId" | "getSessionId"
+  >,
 ) {
   return async function systemPromptTransform(
-    _input: { sessionID?: string; model?: unknown },
+    input: { sessionID?: string; model?: unknown },
     output: { system: string[] },
   ): Promise<void> {
     if (!state.isConnected()) return
+    if (input.sessionID && input.sessionID !== state.getSessionId()) return
 
     const channelId = state.getChannelId()
     output.system.push(

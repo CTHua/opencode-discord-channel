@@ -85,10 +85,8 @@ export function createOutboundBridge(
 
       const allText = [...textBuffer.values()].join("\n\n")
       if (allText.trim().length === 0) return
-
-      textBuffer.clear()
-
       await discordClient.sendMessage(channelId, allText)
+      textBuffer.clear()
 
       try {
         const agents = await getCachedAgents()

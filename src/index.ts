@@ -148,6 +148,19 @@ const plugin: Plugin = async (ctx) => {
             channelId,
             sessionId: sessionID,
           })
+
+          const channelValid = await discordClient.validateChannel(channelId)
+          if (!channelValid) {
+            await discordClient.disconnect().catch(() => {})
+            state.disconnect()
+            output.parts = [
+              textPart(
+                `Error: Channel ${channelId} not found or bot lacks access.`,
+              ),
+            ]
+            return
+          }
+
           state.setBotUserId(discordClient.getBotUserId() ?? "")
 
           createInboundBridge({

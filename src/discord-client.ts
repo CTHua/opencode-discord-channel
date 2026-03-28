@@ -53,9 +53,15 @@ export function createDiscordClient() {
         })
       })
 
-      discordClient.on("interactionCreate", (interaction: any) => {
+      discordClient.on("interactionCreate", async (interaction: any) => {
         if (!buttonHandler) return
         if (!interaction.isButton()) return
+
+        try {
+          await interaction.deferUpdate()
+        } catch {
+        }
+
         buttonHandler(
           interaction.customId,
           interaction.user.id,
@@ -118,6 +124,15 @@ export function createDiscordClient() {
     async startTyping(channelId: string): Promise<void> {
       const channel = await getChannel(channelId)
       await channel.sendTyping()
+    },
+
+    async validateChannel(channelId: string): Promise<boolean> {
+      try {
+        await getChannel(channelId)
+        return true
+      } catch {
+        return false
+      }
     },
 
     onMessage(handler: (msg: DiscordMessage) => void): void {

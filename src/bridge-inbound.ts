@@ -23,6 +23,14 @@ type InboundBridgeDeps = {
   onAgentSwitch: (agentName: string) => void
 }
 
+function escapeXml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+}
+
 export function createInboundBridge(deps: InboundBridgeDeps): void {
   const { discordClient, state, sessionPrompt, onAgentSwitch } = deps
 
@@ -35,7 +43,7 @@ export function createInboundBridge(deps: InboundBridgeDeps): void {
     const sessionId = state.getSessionId()
     if (!sessionId) return
 
-    const formattedText = `<discord channel="${msg.channelId}" user="${msg.username}">\n${msg.content}\n</discord>`
+    const formattedText = `<discord channel="${escapeXml(msg.channelId)}" user="${escapeXml(msg.username)}">\n${msg.content}\n</discord>`
 
     const currentAgent = state.getCurrentAgent()
     const params: Parameters<SessionPromptFn>[0] = {

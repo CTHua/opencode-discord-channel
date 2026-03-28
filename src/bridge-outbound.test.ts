@@ -138,6 +138,26 @@ describe("createOutboundBridge", () => {
     expect(discord.sendMessage).toHaveBeenCalledTimes(1)
   })
 
+  it("keeps buffer when sendMessage fails, then retries on next idle", async () => {
+    discord.sendMessage.mockRejectedValueOnce(new Error("send failed"))
+
+    await handler({
+      type: "message.part.updated",
+      properties: {
+        part: { id: "part1", sessionID: "ses_main", messageID: "msg1", type: "text", text: "first" },
+      },
+    })
+
+    await expect(
+      handler({ type: "session.idle", properties: { sessionID: "ses_main" } }),
+    ).rejects.toThrow("send failed")
+
+    await handler({ type: "session.idle", properties: { sessionID: "ses_main" } })
+
+    expect(discord.sendMessage).toHaveBeenCalledTimes(2)
+    expect(discord.sendMessage.mock.calls[1]?.[1]).toBe("first")
+  })
+
   it("ignores tool parts", async () => {
     await handler({
       type: "message.part.updated",

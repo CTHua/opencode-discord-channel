@@ -14,6 +14,10 @@ const mockChannelFetch = mock(async () => ({
 const mockClientOn = mock((_event: string, _cb: any) => mockClientInstance)
 const mockClientOnce = mock((_event: string, _cb: any) => mockClientInstance)
 const mockClientOff = mock((_event: string, _cb: any) => mockClientInstance)
+const mockDeferUpdate = mock(async () => {})
+
+let interactionCreateCallback: ((interaction: any) => void | Promise<void>) | null =
+  null
 
 const mockBotUser = { id: "bot123", username: "TestBot" }
 
@@ -84,6 +88,14 @@ describe("createDiscordClient", () => {
     mockCacheGet.mockClear()
     mockLogin.mockImplementation(async (_token: string) => "mock-token")
     mockClientOnce.mockImplementation((_event: string, _cb: any) => mockClientInstance)
+    mockDeferUpdate.mockClear()
+    interactionCreateCallback = null
+    mockClientOn.mockImplementation((_event: string, _cb: any) => {
+      if (_event === "interactionCreate") {
+        interactionCreateCallback = _cb
+      }
+      return mockClientInstance
+    })
   })
 
   describe("connect()", () => {
@@ -174,6 +186,23 @@ describe("createDiscordClient", () => {
     })
   })
 
+  describe("validateChannel()", () => {
+    it("returns true for accessible text channel", async () => {
+      simulateReady()
+      await client.connect("test-token")
+      await expect(client.validateChannel("channel123")).resolves.toBe(true)
+    })
+
+    it("returns false when channel is not accessible", async () => {
+      simulateReady()
+      await client.connect("test-token")
+      mockCacheGet.mockImplementationOnce((_id: string) => null)
+      mockChannelFetch.mockRejectedValueOnce(new Error("missing channel"))
+
+      await expect(client.validateChannel("missing")).resolves.toBe(false)
+    })
+  })
+
   describe("getBotUserId()", () => {
     it("returns null before connection", () => {
       expect(client.getBotUserId()).toBeNull()
@@ -190,6 +219,25 @@ describe("createDiscordClient", () => {
         (call: any[]) => call[0] === "messageCreate",
       )
       expect(messageCreateCalls.length).toBeGreaterThanOrEqual(1)
+    })
+  })
+
+  describe("onButtonInteraction()", () => {
+    it("acknowledges button interaction via deferUpdate", async () => {
+      simulateReady()
+      const handler = mock(() => {})
+      client.onButtonInteraction(handler)
+      await client.connect("test-token")
+
+      await interactionCreateCallback?.({
+        isButton: () => true,
+        deferUpdate: mockDeferUpdate,
+        customId: "agent_switch_oracle",
+        user: { id: "u1", username: "owner" },
+      })
+
+      expect(mockDeferUpdate).toHaveBeenCalledTimes(1)
+      expect(handler).toHaveBeenCalledWith("agent_switch_oracle", "u1", "owner")
     })
   })
 
