@@ -247,20 +247,25 @@ const plugin: Plugin = async (ctx) => {
                 return
               }
               await interaction.deferReply({ ephemeral: true })
-              const agents = await fetchAgents()
-              if (agents.length <= 1) {
-                await interaction.editReply({ content: "No agents available." })
-                return
+              try {
+                const agents = await fetchAgents()
+                if (agents.length <= 1) {
+                  await interaction.editReply({ content: "No agents available." })
+                  return
+                }
+                const currentAgent =
+                  state.getCurrentAgent() ?? agents[0]?.name ?? ""
+                const embed = buildAgentEmbed(currentAgent)
+                const rows = buildAgentSelectMenu(agents, currentAgent)
+                if (rows.length > 0) {
+                  const msgId = await discordClient.sendSelectMenu(ch, embed, rows)
+                  state.setAgentMenuMessageId(msgId)
+                }
+                await interaction.editReply({ content: "Agent selector sent." })
+              } catch (err) {
+                const msg = err instanceof Error ? err.message : "Unknown error"
+                await interaction.editReply({ content: `Failed: ${msg}` }).catch(() => {})
               }
-              const currentAgent =
-                state.getCurrentAgent() ?? agents[0]?.name ?? ""
-              const embed = buildAgentEmbed(currentAgent)
-              const rows = buildAgentSelectMenu(agents, currentAgent)
-              if (rows.length > 0) {
-                const msgId = await discordClient.sendSelectMenu(ch, embed, rows)
-                state.setAgentMenuMessageId(msgId)
-              }
-              await interaction.editReply({ content: "Agent selector sent." })
               return
             }
 

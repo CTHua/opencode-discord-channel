@@ -78,64 +78,77 @@ export function createDiscordClient() {
       })
 
       discordClient.on("interactionCreate", async (interaction: any) => {
-        const onModal = modalSubmitHandler
-        const onRawButton = rawButtonHandler
-        const onButton = buttonHandler
-        const onSelect = selectMenuHandler
-        const onSlash = slashCommandHandler
+        try {
+          const onModal = modalSubmitHandler
+          const onRawButton = rawButtonHandler
+          const onButton = buttonHandler
+          const onSelect = selectMenuHandler
+          const onSlash = slashCommandHandler
 
-        if (interaction.isChatInputCommand?.()) {
-          if (onSlash) {
-            await onSlash(interaction.commandName, interaction)
-          }
-          return
-        }
-
-        if (interaction.isModalSubmit?.()) {
-          try {
-            await interaction.deferUpdate()
-          } catch {}
-          if (onModal) {
-            const fields = new Map<string, string>()
-            for (const [key, comp] of interaction.fields.fields) {
-              fields.set(comp.customId ?? key, comp.value)
+          if (interaction.isChatInputCommand?.()) {
+            if (onSlash) {
+              try {
+                await onSlash(interaction.commandName, interaction)
+              } catch (err) {
+                try {
+                  const msg = err instanceof Error ? err.message : "Unknown error"
+                  if (interaction.deferred || interaction.replied) {
+                    await interaction.editReply({ content: `Error: ${msg}` })
+                  } else {
+                    await interaction.reply({ content: `Error: ${msg}`, ephemeral: true })
+                  }
+                } catch {}
+              }
             }
-            onModal(interaction.customId, fields, interaction.user.id)
+            return
           }
-          return
-        }
 
-        if (interaction.isButton?.()) {
-          if (onRawButton) {
-            const handled = await onRawButton(interaction)
-            if (handled) return
+          if (interaction.isModalSubmit?.()) {
+            try {
+              await interaction.deferUpdate()
+            } catch {}
+            if (onModal) {
+              const fields = new Map<string, string>()
+              for (const [key, comp] of interaction.fields.fields) {
+                fields.set(comp.customId ?? key, comp.value)
+              }
+              onModal(interaction.customId, fields, interaction.user.id)
+            }
+            return
           }
-          try {
-            await interaction.deferUpdate()
-          } catch {}
-          if (onButton) {
-            onButton(
-              interaction.customId,
-              interaction.user.id,
-              interaction.user.username,
-            )
-          }
-          return
-        }
 
-        if (interaction.isStringSelectMenu?.()) {
-          try {
-            await interaction.deferUpdate()
-          } catch {}
-          if (onSelect) {
-            onSelect(
-              interaction.customId,
-              interaction.values,
-              interaction.user.id,
-            )
+          if (interaction.isButton?.()) {
+            if (onRawButton) {
+              const handled = await onRawButton(interaction)
+              if (handled) return
+            }
+            try {
+              await interaction.deferUpdate()
+            } catch {}
+            if (onButton) {
+              onButton(
+                interaction.customId,
+                interaction.user.id,
+                interaction.user.username,
+              )
+            }
+            return
           }
-          return
-        }
+
+          if (interaction.isStringSelectMenu?.()) {
+            try {
+              await interaction.deferUpdate()
+            } catch {}
+            if (onSelect) {
+              onSelect(
+                interaction.customId,
+                interaction.values,
+                interaction.user.id,
+              )
+            }
+            return
+          }
+        } catch {}
       })
 
       await new Promise<void>((resolve, reject) => {
