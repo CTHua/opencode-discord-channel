@@ -259,6 +259,19 @@ const plugin: Plugin = async (ctx) => {
               const req = questionRequests.get(requestID)
               return req?.questions[questionIndex] ?? null
             },
+            onShowAgents: async () => {
+              const ch = state.getChannelId()
+              if (!ch) return
+              const agents = await fetchAgents()
+              if (agents.length <= 1) return
+              const currentAgent =
+                state.getCurrentAgent() ?? agents[0]?.name ?? ""
+              const embed = buildAgentEmbed(currentAgent)
+              const rows = buildAgentSelectMenu(agents, currentAgent)
+              if (rows.length > 0) {
+                await discordClient.sendSelectMenu(ch, embed, rows)
+              }
+            },
           })
 
           output.parts = [

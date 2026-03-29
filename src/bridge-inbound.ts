@@ -49,6 +49,7 @@ type InboundBridgeDeps = {
     requestID: string,
     questionIndex: number,
   ) => QuestionInfo | null
+  onShowAgents: () => Promise<void>
 }
 
 export function createInboundBridge(deps: InboundBridgeDeps): void {
@@ -59,6 +60,7 @@ export function createInboundBridge(deps: InboundBridgeDeps): void {
     onAgentSwitch,
     onQuestionReply,
     getQuestionInfo,
+    onShowAgents,
   } = deps
   const fs = require("fs")
   const logFile = "/tmp/opencode-discord-channel.log"
@@ -130,6 +132,14 @@ export function createInboundBridge(deps: InboundBridgeDeps): void {
     const sessionId = state.getSessionId()
     if (!sessionId) {
       log("[filter] no sessionId")
+      return
+    }
+
+    if (msg.content.trim() === "/dc:agents") {
+      log("[cmd] /dc:agents from Discord")
+      await onShowAgents().catch((err) =>
+        log(`[cmd] /dc:agents failed: ${err}`),
+      )
       return
     }
 
