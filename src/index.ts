@@ -56,8 +56,10 @@ const plugin: Plugin = async (ctx) => {
         path: { id: params.sessionID },
         body,
       })
-      const messageID = result?.data?.id ?? result?.data?.messageID
-      if (messageID && outbound) outbound.trackInjectedMessage(messageID)
+      if (outbound) {
+        const text = (params.parts[0] as any)?.text
+        if (text) outbound.trackInjectedText(text)
+      }
       log(`[promptSession] result: ${JSON.stringify(result).slice(0, 500)}`)
     } catch (err) {
       log(`[promptSession] promptAsync threw: ${err}`)

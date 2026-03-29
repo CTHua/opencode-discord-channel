@@ -42,11 +42,11 @@ type OpenCodeEvent =
 
 export function createOutboundBridge(
   deps: OutboundBridgeDeps,
-): { handleEvent: (event: OpenCodeEvent) => Promise<void>; trackInjectedMessage: (messageID: string) => void } {
+): { handleEvent: (event: OpenCodeEvent) => Promise<void>; trackInjectedText: (text: string) => void } {
   const { discordClient, state, fetchAgents } = deps
   const display = deps.agentDisplay ?? { buildAgentEmbed, buildAgentButtons }
   const textBuffer = new Map<string, string>()
-  const injectedMessageIDs = new Set<string>()
+  const injectedTexts = new Set<string>()
   let cachedAgents: AgentInfo[] | null = null
   let cachedAt = 0
   const CACHE_TTL = 30_000
@@ -59,8 +59,8 @@ export function createOutboundBridge(
     return cachedAgents
   }
 
-  function trackInjectedMessage(messageID: string) {
-    injectedMessageIDs.add(messageID)
+  function trackInjectedText(text: string) {
+    injectedTexts.add(text)
   }
 
   async function handleEvent(event: OpenCodeEvent): Promise<void> {
@@ -74,7 +74,10 @@ export function createOutboundBridge(
       if (!part) return
       if (part.sessionID !== connectedSessionId) return
       if (part.type !== "text") return
-      if (part.messageID && injectedMessageIDs.has(part.messageID)) return
+      if (part.text && injectedTexts.has(part.text)) {
+        injectedTexts.delete(part.text)
+        return
+      }
       const partKey = part.id ?? part.messageID
       if (!partKey || typeof part.text !== "string") return
 
@@ -117,5 +120,5 @@ export function createOutboundBridge(
     }
   }
 
-  return { handleEvent, trackInjectedMessage }
+  return { handleEvent, trackInjectedText }
 }
