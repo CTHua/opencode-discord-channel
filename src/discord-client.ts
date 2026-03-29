@@ -177,9 +177,10 @@ export function createDiscordClient() {
       channelId: string,
       embed: EmbedBuilder,
       rows: ActionRowBuilder<StringSelectMenuBuilder>[],
-    ): Promise<void> {
+    ): Promise<string> {
       const channel = await getChannel(channelId)
-      await channel.send({ embeds: [embed], components: rows })
+      const msg = await channel.send({ embeds: [embed], components: rows })
+      return msg.id
     },
 
     async startTyping(channelId: string): Promise<void> {

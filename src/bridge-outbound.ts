@@ -15,7 +15,7 @@ type AgentDisplayFunctions = {
 type OutboundBridgeDeps = {
   discordClient: Pick<
     DiscordClientWrapper,
-    "sendMessage" | "startTyping" | "sendSelectMenu" | "sendQuestion"
+    "sendMessage" | "startTyping" | "sendSelectMenu" | "sendQuestion" | "deleteMessage"
   >
   state: Pick<
     ConnectionStateManager,
@@ -25,6 +25,8 @@ type OutboundBridgeDeps = {
     | "getCurrentAgent"
     | "addPendingQuestion"
     | "addQuestionMessageId"
+    | "getAgentMenuMessageId"
+    | "clearAgentMenuMessageId"
   >
   agentDisplay?: AgentDisplayFunctions
   fetchAgents: () => Promise<AgentInfo[]>
@@ -111,6 +113,14 @@ export function createOutboundBridge(deps: OutboundBridgeDeps): {
     if (event.type === "session.idle") {
       const channelId = state.getChannelId()
       if (!channelId) return
+
+      const menuMsgId = state.getAgentMenuMessageId()
+      if (menuMsgId) {
+        state.clearAgentMenuMessageId()
+        discordClient
+          .deleteMessage(channelId, menuMsgId)
+          .catch(() => {})
+      }
 
       const allText = [...textBuffer.values()].join("\n\n")
       if (allText.trim().length === 0) return

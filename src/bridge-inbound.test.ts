@@ -34,6 +34,13 @@ function createMockState(
     disconnect: mock(() => {}),
     setBotUserId: mock((_id: string) => {}),
     getState: () => ({ ...defaults }),
+    setQuestionAnswer: mock(() => null),
+    isQuestionComplete: () => false,
+    getPendingQuestion: () => null,
+    removePendingQuestion: mock(() => {}),
+    getQuestionMessageIds: () => [] as string[],
+    getAgentMenuMessageId: () => null as string | null,
+    clearAgentMenuMessageId: mock(() => {}),
   }
 }
 
@@ -73,6 +80,7 @@ function createMockDiscordClient() {
     sendMessage: mock(async () => {}),
     startTyping: mock(async () => {}),
     onModalSubmit: mock(() => {}),
+    deleteMessage: mock(async () => {}),
   }
 }
 

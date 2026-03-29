@@ -41,6 +41,8 @@ type InboundBridgeDeps = {
     | "getPendingQuestion"
     | "removePendingQuestion"
     | "getQuestionMessageIds"
+    | "getAgentMenuMessageId"
+    | "clearAgentMenuMessageId"
   >
   sessionPrompt: SessionPromptFn
   onAgentSwitch: (agentName: string) => void
@@ -187,6 +189,16 @@ export function createInboundBridge(deps: InboundBridgeDeps): void {
     if (!agentName) return
 
     log(`[select-menu] agent switch to: ${agentName}`)
+
+    const channelId = state.getChannelId()
+    const menuMsgId = state.getAgentMenuMessageId()
+    if (channelId && menuMsgId) {
+      state.clearAgentMenuMessageId()
+      discordClient
+        .deleteMessage(channelId, menuMsgId)
+        .catch((err) => log(`[select-menu] delete menu failed: ${err}`))
+    }
+
     onAgentSwitch(agentName)
   })
 

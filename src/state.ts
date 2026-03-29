@@ -17,6 +17,7 @@ export function createConnectionState() {
 
   const pendingQuestions = new Map<string, PendingQuestion>()
   const questionMessageIds = new Map<string, string[]>()
+  let agentMenuMessageId: string | null = null
 
   return {
     connect(config: BridgeConfig): void {
@@ -126,6 +127,18 @@ export function createConnectionState() {
       const pending = pendingQuestions.get(requestID)
       if (!pending) return false
       return pending.answers.every((a) => a !== null)
+    },
+
+    setAgentMenuMessageId(id: string): void {
+      agentMenuMessageId = id
+    },
+
+    getAgentMenuMessageId(): string | null {
+      return agentMenuMessageId
+    },
+
+    clearAgentMenuMessageId(): void {
+      agentMenuMessageId = null
     },
   }
 }

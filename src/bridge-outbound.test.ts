@@ -23,6 +23,10 @@ function createMockState(
     getChannelId: () => defaults.channelId,
     getCurrentAgent: () => defaults.currentAgent,
     getState: () => ({ ...defaults }),
+    addPendingQuestion: mock(() => {}),
+    addQuestionMessageId: mock(() => {}),
+    getAgentMenuMessageId: () => null as string | null,
+    clearAgentMenuMessageId: mock(() => {}),
   }
 }
 
@@ -31,8 +35,12 @@ function createMockDiscordClient() {
     sendMessage: mock(async (_channelId: string, _content: string) => {}),
     startTyping: mock(async (_channelId: string) => {}),
     sendSelectMenu: mock(
-      async (_channelId: string, _embed: any, _rows: any[]) => {},
+      async (_channelId: string, _embed: any, _rows: any[]) => "msg_menu",
     ),
+    sendQuestion: mock(
+      async (_channelId: string, _embeds: any[], _rows: any[]) => "msg_q",
+    ),
+    deleteMessage: mock(async (_channelId: string, _messageId: string) => {}),
   }
 }
 

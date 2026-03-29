@@ -269,7 +269,8 @@ const plugin: Plugin = async (ctx) => {
               const embed = buildAgentEmbed(currentAgent)
               const rows = buildAgentSelectMenu(agents, currentAgent)
               if (rows.length > 0) {
-                await discordClient.sendSelectMenu(ch, embed, rows)
+                const msgId = await discordClient.sendSelectMenu(ch, embed, rows)
+                state.setAgentMenuMessageId(msgId)
               }
             },
           })
@@ -328,7 +329,8 @@ const plugin: Plugin = async (ctx) => {
             const embed = buildAgentEmbed(currentAgent)
             const rows = buildAgentSelectMenu(agents, currentAgent)
             if (rows.length > 0) {
-              await discordClient.sendSelectMenu(channelId, embed, rows)
+              const msgId = await discordClient.sendSelectMenu(channelId, embed, rows)
+              state.setAgentMenuMessageId(msgId)
             }
           }
           output.parts = [textPart("Agent selector sent to Discord.")]
