@@ -16,6 +16,7 @@ export function createConnectionState() {
   }
 
   const pendingQuestions = new Map<string, PendingQuestion>()
+  const questionMessageIds = new Map<string, string[]>()
 
   return {
     connect(config: BridgeConfig): void {
@@ -108,6 +109,17 @@ export function createConnectionState() {
 
     removePendingQuestion(requestID: string): void {
       pendingQuestions.delete(requestID)
+      questionMessageIds.delete(requestID)
+    },
+
+    addQuestionMessageId(requestID: string, messageId: string): void {
+      const ids = questionMessageIds.get(requestID) ?? []
+      ids.push(messageId)
+      questionMessageIds.set(requestID, ids)
+    },
+
+    getQuestionMessageIds(requestID: string): string[] {
+      return questionMessageIds.get(requestID) ?? []
     },
 
     isQuestionComplete(requestID: string): boolean {

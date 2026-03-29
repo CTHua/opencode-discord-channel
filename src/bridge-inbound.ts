@@ -26,6 +26,7 @@ type InboundBridgeDeps = {
     | "onSelectMenuInteraction"
     | "onRawButtonInteraction"
     | "onModalSubmit"
+    | "deleteMessage"
   >
   state: Pick<
     ConnectionStateManager,
@@ -39,6 +40,7 @@ type InboundBridgeDeps = {
     | "isQuestionComplete"
     | "getPendingQuestion"
     | "removePendingQuestion"
+    | "getQuestionMessageIds"
   >
   sessionPrompt: SessionPromptFn
   onAgentSwitch: (agentName: string) => void
@@ -85,6 +87,18 @@ export function createInboundBridge(deps: InboundBridgeDeps): void {
     } catch (err) {
       log(`[question] reply FAILED requestID=${requestID}: ${err}`)
     }
+
+    const channelId = state.getChannelId()
+    if (channelId) {
+      for (const msgId of state.getQuestionMessageIds(requestID)) {
+        discordClient
+          .deleteMessage(channelId, msgId)
+          .catch((err) =>
+            log(`[question] delete msg failed: ${err}`),
+          )
+      }
+    }
+
     state.removePendingQuestion(requestID)
   }
 

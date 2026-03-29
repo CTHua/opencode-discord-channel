@@ -24,6 +24,7 @@ type OutboundBridgeDeps = {
     | "getChannelId"
     | "getCurrentAgent"
     | "addPendingQuestion"
+    | "addQuestionMessageId"
   >
   agentDisplay?: AgentDisplayFunctions
   fetchAgents: () => Promise<AgentInfo[]>
@@ -149,7 +150,8 @@ export function createOutboundBridge(deps: OutboundBridgeDeps): {
         const embed = buildQuestionEmbed(q, i, req.questions.length)
         const components = buildQuestionComponents(q, req.id, i)
         try {
-          await discordClient.sendQuestion(channelId, [embed], components)
+          const msgId = await discordClient.sendQuestion(channelId, [embed], components)
+          state.addQuestionMessageId(req.id, msgId)
         } catch (err) {
           console.error("[discord-channel] question display failed:", err)
         }

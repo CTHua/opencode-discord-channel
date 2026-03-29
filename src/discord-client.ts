@@ -232,9 +232,16 @@ export function createDiscordClient() {
       channelId: string,
       embeds: EmbedBuilder[],
       rows: ActionRowBuilder<MessageActionRowComponentBuilder>[],
-    ): Promise<void> {
+    ): Promise<string> {
       const channel = await getChannel(channelId)
-      await channel.send({ embeds, components: rows })
+      const msg = await channel.send({ embeds, components: rows })
+      return msg.id
+    },
+
+    async deleteMessage(channelId: string, messageId: string): Promise<void> {
+      const channel = await getChannel(channelId)
+      const msg = await channel.messages.fetch(messageId)
+      await msg.delete()
     },
 
     getBotUserId(): string | null {
