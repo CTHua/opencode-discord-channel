@@ -268,7 +268,7 @@ export function createDiscordClient() {
       slashCommandHandler = handler
     },
 
-    async registerSlashCommands(token: string, guildId?: string): Promise<void> {
+    async registerSlashCommands(token: string, channelId: string): Promise<void> {
       const commands = [
         new SlashCommandBuilder()
           .setName("agents")
@@ -282,6 +282,8 @@ export function createDiscordClient() {
       const appId = discordClient?.user?.id
       if (!appId) return
 
+      const channel = await getChannel(channelId)
+      const guildId = channel.guildId
       if (guildId) {
         await rest.put(Routes.applicationGuildCommands(appId, guildId), {
           body: commands,

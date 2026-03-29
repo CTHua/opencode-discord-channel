@@ -233,7 +233,7 @@ const plugin: Plugin = async (ctx) => {
           updateConfig({ defaultChannelId: channelId })
 
           try {
-            await discordClient.registerSlashCommands(token)
+            await discordClient.registerSlashCommands(token, channelId)
             log("[slash] commands registered")
           } catch (err) {
             log(`[slash] registration failed: ${err}`)
