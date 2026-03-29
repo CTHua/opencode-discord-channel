@@ -282,6 +282,8 @@ export function createDiscordClient() {
       const appId = discordClient?.user?.id
       if (!appId) return
 
+      await rest.put(Routes.applicationCommands(appId), { body: [] }).catch(() => {})
+
       const channel = await getChannel(channelId)
       const guildId = channel.guildId
       if (guildId) {
