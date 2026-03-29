@@ -232,6 +232,50 @@ const plugin: Plugin = async (ctx) => {
 
           updateConfig({ defaultChannelId: channelId })
 
+          try {
+            await discordClient.registerSlashCommands(token)
+            log("[slash] commands registered")
+          } catch (err) {
+            log(`[slash] registration failed: ${err}`)
+          }
+
+          discordClient.onSlashCommand(async (command, interaction) => {
+            if (command === "agents") {
+              const ch = state.getChannelId()
+              if (!ch) {
+                await interaction.reply({ content: "Not connected.", ephemeral: true })
+                return
+              }
+              await interaction.deferReply({ ephemeral: true })
+              const agents = await fetchAgents()
+              if (agents.length <= 1) {
+                await interaction.editReply({ content: "No agents available." })
+                return
+              }
+              const currentAgent =
+                state.getCurrentAgent() ?? agents[0]?.name ?? ""
+              const embed = buildAgentEmbed(currentAgent)
+              const rows = buildAgentSelectMenu(agents, currentAgent)
+              if (rows.length > 0) {
+                const msgId = await discordClient.sendSelectMenu(ch, embed, rows)
+                state.setAgentMenuMessageId(msgId)
+              }
+              await interaction.editReply({ content: "Agent selector sent." })
+              return
+            }
+
+            if (command === "status") {
+              const s = state.getState()
+              const statusText = s.connected
+                ? `Connected to channel <#${s.channelId}> (agent: **${s.currentAgent ?? "default"}**)`
+                : "Not connected."
+              await interaction.reply({ content: statusText, ephemeral: true })
+              return
+            }
+
+            await interaction.reply({ content: "Unknown command.", ephemeral: true })
+          })
+
           createInboundBridge({
             discordClient,
             state,

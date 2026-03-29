@@ -1,4 +1,10 @@
-import { Client, GatewayIntentBits } from "discord.js"
+import {
+  Client,
+  GatewayIntentBits,
+  SlashCommandBuilder,
+  REST,
+  Routes,
+} from "discord.js"
 import type {
   EmbedBuilder,
   ActionRowBuilder,
@@ -27,6 +33,9 @@ export function createDiscordClient() {
     | null = null
   let modalSubmitHandler:
     | ((customId: string, fields: Map<string, string>, userId: string) => void)
+    | null = null
+  let slashCommandHandler:
+    | ((command: string, interaction: any) => Promise<void>)
     | null = null
 
   async function getChannel(channelId: string): Promise<TextChannel> {
@@ -73,6 +82,14 @@ export function createDiscordClient() {
         const onRawButton = rawButtonHandler
         const onButton = buttonHandler
         const onSelect = selectMenuHandler
+        const onSlash = slashCommandHandler
+
+        if (interaction.isChatInputCommand?.()) {
+          if (onSlash) {
+            await onSlash(interaction.commandName, interaction)
+          }
+          return
+        }
 
         if (interaction.isModalSubmit?.()) {
           try {
@@ -243,6 +260,37 @@ export function createDiscordClient() {
       const channel = await getChannel(channelId)
       const msg = await channel.messages.fetch(messageId)
       await msg.delete()
+    },
+
+    onSlashCommand(
+      handler: (command: string, interaction: any) => Promise<void>,
+    ): void {
+      slashCommandHandler = handler
+    },
+
+    async registerSlashCommands(token: string, guildId?: string): Promise<void> {
+      const commands = [
+        new SlashCommandBuilder()
+          .setName("agents")
+          .setDescription("Show agent selector"),
+        new SlashCommandBuilder()
+          .setName("status")
+          .setDescription("Show OpenCode bridge status"),
+      ].map((c) => c.toJSON())
+
+      const rest = new REST({ version: "10" }).setToken(token)
+      const appId = discordClient?.user?.id
+      if (!appId) return
+
+      if (guildId) {
+        await rest.put(Routes.applicationGuildCommands(appId, guildId), {
+          body: commands,
+        })
+      } else {
+        await rest.put(Routes.applicationCommands(appId), {
+          body: commands,
+        })
+      }
     },
 
     getBotUserId(): string | null {
