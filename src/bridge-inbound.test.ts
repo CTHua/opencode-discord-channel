@@ -38,23 +38,37 @@ function createMockState(
 }
 
 function createMockDiscordClient() {
-  let messageCallback: ((msg: DiscordMessage) => void | Promise<void>) | null = null
-  let buttonCallback:
-    | ((customId: string, userId: string, username: string) => void | Promise<void>)
+  let messageCallback:
+    | ((msg: DiscordMessage) => void | Promise<void>)
+    | null = null
+  let selectMenuCallback:
+    | ((
+        customId: string,
+        values: string[],
+        userId: string,
+      ) => void | Promise<void>)
     | null = null
 
   return {
     onMessage: (cb: (msg: DiscordMessage) => void | Promise<void>) => {
       messageCallback = cb
     },
-    onButtonInteraction: (
-      cb: (customId: string, userId: string, username: string) => void | Promise<void>,
+    onButtonInteraction: mock(() => {}),
+    onSelectMenuInteraction: (
+      cb: (
+        customId: string,
+        values: string[],
+        userId: string,
+      ) => void | Promise<void>,
     ) => {
-      buttonCallback = cb
+      selectMenuCallback = cb
     },
     triggerMessage: (msg: DiscordMessage) => messageCallback?.(msg),
-    triggerButton: (customId: string, userId: string, username: string) =>
-      buttonCallback?.(customId, userId, username),
+    triggerSelectMenu: (
+      customId: string,
+      values: string[],
+      userId: string,
+    ) => selectMenuCallback?.(customId, values, userId),
     sendMessage: mock(async () => {}),
     startTyping: mock(async () => {}),
   }
@@ -158,7 +172,10 @@ describe("createInboundBridge", () => {
         onAgentSwitch,
       })
 
-      await discord.triggerMessage({ ...ownerMessage, authorId: "random_user_999" })
+      await discord.triggerMessage({
+        ...ownerMessage,
+        authorId: "random_user_999",
+      })
 
       expect(sessionPrompt).not.toHaveBeenCalled()
     })
@@ -175,7 +192,10 @@ describe("createInboundBridge", () => {
         onAgentSwitch,
       })
 
-      await discord.triggerMessage({ ...ownerMessage, channelId: "wrong_channel" })
+      await discord.triggerMessage({
+        ...ownerMessage,
+        channelId: "wrong_channel",
+      })
 
       expect(sessionPrompt).not.toHaveBeenCalled()
     })
@@ -192,7 +212,10 @@ describe("createInboundBridge", () => {
         onAgentSwitch,
       })
 
-      await discord.triggerMessage({ ...ownerMessage, authorId: "bot_id_456" })
+      await discord.triggerMessage({
+        ...ownerMessage,
+        authorId: "bot_id_456",
+      })
 
       expect(sessionPrompt).not.toHaveBeenCalled()
     })
@@ -215,8 +238,8 @@ describe("createInboundBridge", () => {
     })
   })
 
-  describe("agent switch button interaction", () => {
-    it("calls onAgentSwitch with extracted agent name from owner", async () => {
+  describe("agent switch via select menu", () => {
+    it("calls onAgentSwitch with selected agent from owner", async () => {
       const state = createMockState()
       const discord = createMockDiscordClient()
       createInboundBridge({
@@ -226,12 +249,16 @@ describe("createInboundBridge", () => {
         onAgentSwitch,
       })
 
-      await discord.triggerButton("agent_switch_oracle", "owner_id_123", "OwnerUser")
+      await discord.triggerSelectMenu(
+        "agent_select",
+        ["oracle"],
+        "owner_id_123",
+      )
 
       expect(onAgentSwitch).toHaveBeenCalledWith("oracle")
     })
 
-    it("ignores button from non-owner", async () => {
+    it("ignores select menu from non-owner", async () => {
       const state = createMockState()
       const discord = createMockDiscordClient()
       createInboundBridge({
@@ -241,12 +268,16 @@ describe("createInboundBridge", () => {
         onAgentSwitch,
       })
 
-      await discord.triggerButton("agent_switch_oracle", "random_999", "RandomUser")
+      await discord.triggerSelectMenu(
+        "agent_select",
+        ["oracle"],
+        "random_999",
+      )
 
       expect(onAgentSwitch).not.toHaveBeenCalled()
     })
 
-    it("ignores non-agent-switch buttons", async () => {
+    it("ignores non-agent-select menus", async () => {
       const state = createMockState()
       const discord = createMockDiscordClient()
       createInboundBridge({
@@ -256,7 +287,11 @@ describe("createInboundBridge", () => {
         onAgentSwitch,
       })
 
-      await discord.triggerButton("some_other_button", "owner_id_123", "OwnerUser")
+      await discord.triggerSelectMenu(
+        "some_other_menu",
+        ["oracle"],
+        "owner_id_123",
+      )
 
       expect(onAgentSwitch).not.toHaveBeenCalled()
     })

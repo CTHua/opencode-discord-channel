@@ -30,14 +30,20 @@ function createMockDiscordClient() {
   return {
     sendMessage: mock(async (_channelId: string, _content: string) => {}),
     startTyping: mock(async (_channelId: string) => {}),
-    sendButtons: mock(async (_channelId: string, _embed: any, _rows: any[]) => {}),
+    sendSelectMenu: mock(
+      async (_channelId: string, _embed: any, _rows: any[]) => {},
+    ),
   }
 }
 
 function createMockAgentDisplay() {
   return {
-    buildAgentEmbed: mock((_name: string, _color?: string, _status?: string) => ({ toJSON: () => ({}) })),
-    buildAgentButtons: mock((_agents: any[], _current: string) => []),
+    buildAgentEmbed: mock(
+      (_name: string, _color?: string, _status?: string) => ({
+        toJSON: () => ({}),
+      }),
+    ),
+    buildAgentSelectMenu: mock((_agents: any[], _current: string) => []),
   }
 }
 
@@ -52,7 +58,9 @@ describe("createOutboundBridge", () => {
     state = createMockState()
     discord = createMockDiscordClient()
     agentDisplay = createMockAgentDisplay()
-    fetchAgents = mock(async () => [{ name: "sisyphus", mode: "primary" as const }])
+    fetchAgents = mock(async () => [
+      { name: "sisyphus", mode: "primary" as const },
+    ])
 
     const bridge = createOutboundBridge({
       discordClient: discord as any,
@@ -67,25 +75,43 @@ describe("createOutboundBridge", () => {
     await handler({
       type: "message.part.updated",
       properties: {
-        part: { id: "part1", sessionID: "ses_main", messageID: "msg1", type: "text", text: "hello" },
+        part: {
+          id: "part1",
+          sessionID: "ses_main",
+          messageID: "msg1",
+          type: "text",
+          text: "hello",
+        },
       },
     })
 
     expect(discord.sendMessage).not.toHaveBeenCalled()
-    expect(discord.sendButtons).not.toHaveBeenCalled()
+    expect(discord.sendSelectMenu).not.toHaveBeenCalled()
   })
 
   it("replaces text for same messageID on repeated part updates", async () => {
     await handler({
       type: "message.part.updated",
       properties: {
-        part: { id: "part1", sessionID: "ses_main", messageID: "msg1", type: "text", text: "hel" },
+        part: {
+          id: "part1",
+          sessionID: "ses_main",
+          messageID: "msg1",
+          type: "text",
+          text: "hel",
+        },
       },
     })
     await handler({
       type: "message.part.updated",
       properties: {
-        part: { id: "part1", sessionID: "ses_main", messageID: "msg1", type: "text", text: "hello world" },
+        part: {
+          id: "part1",
+          sessionID: "ses_main",
+          messageID: "msg1",
+          type: "text",
+          text: "hello world",
+        },
       },
     })
 
@@ -102,7 +128,13 @@ describe("createOutboundBridge", () => {
     await handler({
       type: "message.part.updated",
       properties: {
-        part: { id: "part1", sessionID: "ses_main", messageID: "msg1", type: "text", text: "hello world" },
+        part: {
+          id: "part1",
+          sessionID: "ses_main",
+          messageID: "msg1",
+          type: "text",
+          text: "hello world",
+        },
       },
     })
 
@@ -122,19 +154,31 @@ describe("createOutboundBridge", () => {
     })
 
     expect(discord.sendMessage).not.toHaveBeenCalled()
-    expect(discord.sendButtons).not.toHaveBeenCalled()
+    expect(discord.sendSelectMenu).not.toHaveBeenCalled()
   })
 
   it("clears buffer after sending once", async () => {
     await handler({
       type: "message.part.updated",
       properties: {
-        part: { id: "part1", sessionID: "ses_main", messageID: "msg1", type: "text", text: "first" },
+        part: {
+          id: "part1",
+          sessionID: "ses_main",
+          messageID: "msg1",
+          type: "text",
+          text: "first",
+        },
       },
     })
 
-    await handler({ type: "session.idle", properties: { sessionID: "ses_main" } })
-    await handler({ type: "session.idle", properties: { sessionID: "ses_main" } })
+    await handler({
+      type: "session.idle",
+      properties: { sessionID: "ses_main" },
+    })
+    await handler({
+      type: "session.idle",
+      properties: { sessionID: "ses_main" },
+    })
 
     expect(discord.sendMessage).toHaveBeenCalledTimes(1)
   })
@@ -145,15 +189,27 @@ describe("createOutboundBridge", () => {
     await handler({
       type: "message.part.updated",
       properties: {
-        part: { id: "part1", sessionID: "ses_main", messageID: "msg1", type: "text", text: "first" },
+        part: {
+          id: "part1",
+          sessionID: "ses_main",
+          messageID: "msg1",
+          type: "text",
+          text: "first",
+        },
       },
     })
 
     await expect(
-      handler({ type: "session.idle", properties: { sessionID: "ses_main" } }),
+      handler({
+        type: "session.idle",
+        properties: { sessionID: "ses_main" },
+      }),
     ).rejects.toThrow("send failed")
 
-    await handler({ type: "session.idle", properties: { sessionID: "ses_main" } })
+    await handler({
+      type: "session.idle",
+      properties: { sessionID: "ses_main" },
+    })
 
     expect(discord.sendMessage).toHaveBeenCalledTimes(2)
     expect(discord.sendMessage.mock.calls[1]?.[1]).toBe("first")
@@ -163,11 +219,20 @@ describe("createOutboundBridge", () => {
     await handler({
       type: "message.part.updated",
       properties: {
-        part: { id: "part1", sessionID: "ses_main", messageID: "msg1", type: "tool", tool: "bash" },
+        part: {
+          id: "part1",
+          sessionID: "ses_main",
+          messageID: "msg1",
+          type: "tool",
+          tool: "bash",
+        },
       },
     })
 
-    await handler({ type: "session.idle", properties: { sessionID: "ses_main" } })
+    await handler({
+      type: "session.idle",
+      properties: { sessionID: "ses_main" },
+    })
 
     expect(discord.sendMessage).not.toHaveBeenCalled()
   })
@@ -186,7 +251,10 @@ describe("createOutboundBridge", () => {
           },
         },
       })
-      await handler({ type: "session.idle", properties: { sessionID: "ses_main" } })
+      await handler({
+        type: "session.idle",
+        properties: { sessionID: "ses_main" },
+      })
       expect(discord.sendMessage).not.toHaveBeenCalled()
     })
   })
@@ -195,11 +263,20 @@ describe("createOutboundBridge", () => {
     await handler({
       type: "message.part.updated",
       properties: {
-        part: { id: "part1", sessionID: "ses_main", messageID: "msg1", type: "reasoning", text: "think" },
+        part: {
+          id: "part1",
+          sessionID: "ses_main",
+          messageID: "msg1",
+          type: "reasoning",
+          text: "think",
+        },
       },
     })
 
-    await handler({ type: "session.idle", properties: { sessionID: "ses_main" } })
+    await handler({
+      type: "session.idle",
+      properties: { sessionID: "ses_main" },
+    })
 
     expect(discord.sendMessage).not.toHaveBeenCalled()
   })
@@ -208,10 +285,19 @@ describe("createOutboundBridge", () => {
     await handler({
       type: "message.part.updated",
       properties: {
-        part: { id: "part1", sessionID: "ses_OTHER", messageID: "msg1", type: "text", text: "ignore me" },
+        part: {
+          id: "part1",
+          sessionID: "ses_OTHER",
+          messageID: "msg1",
+          type: "text",
+          text: "ignore me",
+        },
       },
     })
-    await handler({ type: "session.idle", properties: { sessionID: "ses_OTHER" } })
+    await handler({
+      type: "session.idle",
+      properties: { sessionID: "ses_OTHER" },
+    })
     await handler({
       type: "session.status",
       properties: { sessionID: "ses_OTHER", status: { type: "busy" } },
@@ -239,18 +325,27 @@ describe("createOutboundBridge", () => {
     expect(discord.startTyping).not.toHaveBeenCalled()
   })
 
-  it("does not send buttons when no button rows", async () => {
-    agentDisplay.buildAgentButtons.mockReturnValueOnce([])
+  it("does not send select menu when no rows", async () => {
+    agentDisplay.buildAgentSelectMenu.mockReturnValueOnce([])
 
     await handler({
       type: "message.part.updated",
       properties: {
-        part: { id: "part1", sessionID: "ses_main", messageID: "msg1", type: "text", text: "hello" },
+        part: {
+          id: "part1",
+          sessionID: "ses_main",
+          messageID: "msg1",
+          type: "text",
+          text: "hello",
+        },
       },
     })
-    await handler({ type: "session.idle", properties: { sessionID: "ses_main" } })
+    await handler({
+      type: "session.idle",
+      properties: { sessionID: "ses_main" },
+    })
 
-    expect(discord.sendButtons).not.toHaveBeenCalled()
+    expect(discord.sendSelectMenu).not.toHaveBeenCalled()
   })
 
   it("ignores all events when disconnected", async () => {
@@ -266,17 +361,26 @@ describe("createOutboundBridge", () => {
     await handler({
       type: "message.part.updated",
       properties: {
-        part: { id: "part1", sessionID: "ses_main", messageID: "msg1", type: "text", text: "hi" },
+        part: {
+          id: "part1",
+          sessionID: "ses_main",
+          messageID: "msg1",
+          type: "text",
+          text: "hi",
+        },
       },
     })
-    await handler({ type: "session.idle", properties: { sessionID: "ses_main" } })
+    await handler({
+      type: "session.idle",
+      properties: { sessionID: "ses_main" },
+    })
     await handler({
       type: "session.status",
       properties: { sessionID: "ses_main", status: { type: "busy" } },
     })
 
     expect(discord.sendMessage).not.toHaveBeenCalled()
-    expect(discord.sendButtons).not.toHaveBeenCalled()
+    expect(discord.sendSelectMenu).not.toHaveBeenCalled()
     expect(discord.startTyping).not.toHaveBeenCalled()
   })
 
@@ -295,12 +399,23 @@ describe("createOutboundBridge", () => {
     await handler({
       type: "message.part.updated",
       properties: {
-        part: { id: "part1", sessionID: "ses_main", messageID: "msg1", type: "text", text: "hi" },
+        part: {
+          id: "part1",
+          sessionID: "ses_main",
+          messageID: "msg1",
+          type: "text",
+          text: "hi",
+        },
       },
     })
 
-    await expect(handler({ type: "session.idle", properties: { sessionID: "ses_main" } })).resolves.toBeUndefined()
+    await expect(
+      handler({
+        type: "session.idle",
+        properties: { sessionID: "ses_main" },
+      }),
+    ).resolves.toBeUndefined()
     expect(discord.sendMessage).toHaveBeenCalledTimes(1)
-    expect(discord.sendButtons).not.toHaveBeenCalled()
+    expect(discord.sendSelectMenu).not.toHaveBeenCalled()
   })
 })

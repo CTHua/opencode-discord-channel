@@ -1,5 +1,10 @@
 import { Client, GatewayIntentBits } from "discord.js"
-import type { EmbedBuilder, ActionRowBuilder, ButtonBuilder } from "discord.js"
+import type {
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  StringSelectMenuBuilder,
+} from "discord.js"
 import { TextChannel } from "discord.js"
 import { splitMessage } from "./message-splitter"
 import type { DiscordMessage } from "./types"
@@ -12,6 +17,9 @@ export function createDiscordClient() {
   let messageHandler: ((msg: DiscordMessage) => void) | null = null
   let buttonHandler:
     | ((customId: string, userId: string, username: string) => void)
+    | null = null
+  let selectMenuHandler:
+    | ((customId: string, values: string[], userId: string) => void)
     | null = null
 
   async function getChannel(channelId: string): Promise<TextChannel> {
@@ -54,19 +62,26 @@ export function createDiscordClient() {
       })
 
       discordClient.on("interactionCreate", async (interaction: any) => {
-        if (!buttonHandler) return
-        if (!interaction.isButton()) return
-
         try {
           await interaction.deferUpdate()
-        } catch {
+        } catch {}
+
+        if (interaction.isStringSelectMenu?.() && selectMenuHandler) {
+          selectMenuHandler(
+            interaction.customId,
+            interaction.values,
+            interaction.user.id,
+          )
+          return
         }
 
-        buttonHandler(
-          interaction.customId,
-          interaction.user.id,
-          interaction.user.username,
-        )
+        if (interaction.isButton?.() && buttonHandler) {
+          buttonHandler(
+            interaction.customId,
+            interaction.user.id,
+            interaction.user.username,
+          )
+        }
       })
 
       await new Promise<void>((resolve, reject) => {
@@ -121,6 +136,15 @@ export function createDiscordClient() {
       await channel.send({ embeds: [embed], components: rows })
     },
 
+    async sendSelectMenu(
+      channelId: string,
+      embed: EmbedBuilder,
+      rows: ActionRowBuilder<StringSelectMenuBuilder>[],
+    ): Promise<void> {
+      const channel = await getChannel(channelId)
+      await channel.send({ embeds: [embed], components: rows })
+    },
+
     async startTyping(channelId: string): Promise<void> {
       const channel = await getChannel(channelId)
       await channel.sendTyping()
@@ -143,6 +167,12 @@ export function createDiscordClient() {
       handler: (customId: string, userId: string, username: string) => void,
     ): void {
       buttonHandler = handler
+    },
+
+    onSelectMenuInteraction(
+      handler: (customId: string, values: string[], userId: string) => void,
+    ): void {
+      selectMenuHandler = handler
     },
 
     getBotUserId(): string | null {

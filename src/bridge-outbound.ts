@@ -1,15 +1,18 @@
-import { buildAgentButtons, buildAgentEmbed } from "./agent-display"
+import { buildAgentSelectMenu, buildAgentEmbed } from "./agent-display"
 import type { DiscordClientWrapper } from "./discord-client"
 import type { ConnectionStateManager } from "./state"
 import type { AgentInfo } from "./types"
 
 type AgentDisplayFunctions = {
   buildAgentEmbed: typeof buildAgentEmbed
-  buildAgentButtons: typeof buildAgentButtons
+  buildAgentSelectMenu: typeof buildAgentSelectMenu
 }
 
 type OutboundBridgeDeps = {
-  discordClient: Pick<DiscordClientWrapper, "sendMessage" | "startTyping" | "sendButtons">
+  discordClient: Pick<
+    DiscordClientWrapper,
+    "sendMessage" | "startTyping" | "sendSelectMenu"
+  >
   state: Pick<
     ConnectionStateManager,
     "isConnected" | "getSessionId" | "getChannelId" | "getCurrentAgent"
@@ -40,11 +43,15 @@ type OpenCodeEvent =
       properties?: { sessionID?: string; status?: { type?: string } }
     }
 
-export function createOutboundBridge(
-  deps: OutboundBridgeDeps,
-): { handleEvent: (event: OpenCodeEvent) => Promise<void>; trackInjectedText: (text: string) => void } {
+export function createOutboundBridge(deps: OutboundBridgeDeps): {
+  handleEvent: (event: OpenCodeEvent) => Promise<void>
+  trackInjectedText: (text: string) => void
+} {
   const { discordClient, state, fetchAgents } = deps
-  const display = deps.agentDisplay ?? { buildAgentEmbed, buildAgentButtons }
+  const display = deps.agentDisplay ?? {
+    buildAgentEmbed,
+    buildAgentSelectMenu,
+  }
   const textBuffer = new Map<string, string>()
   const injectedTexts = new Set<string>()
   let cachedAgents: AgentInfo[] | null = null
@@ -97,23 +104,28 @@ export function createOutboundBridge(
       await discordClient.sendMessage(channelId, allText)
       textBuffer.clear()
 
-      // TODO: re-enable agent embed/buttons after UX refinement
-      // try {
-      //   const agents = await getCachedAgents()
-      //   const currentAgent = state.getCurrentAgent() ?? (agents[0]?.name ?? "")
-      //   const embed = display.buildAgentEmbed(currentAgent)
-      //   const rows = display.buildAgentButtons(agents, currentAgent)
-      //   if (rows.length > 0) {
-      //     await discordClient.sendButtons(channelId, embed, rows)
-      //   }
-      // } catch (err) {
-      //   console.error("[discord-channel] agent display failed:", err)
-      // }
+      try {
+        const agents = await getCachedAgents()
+        if (agents.length > 1) {
+          const currentAgent =
+            state.getCurrentAgent() ?? agents[0]?.name ?? ""
+          const embed = display.buildAgentEmbed(currentAgent)
+          const rows = display.buildAgentSelectMenu(agents, currentAgent)
+          if (rows.length > 0) {
+            await discordClient.sendSelectMenu(channelId, embed, rows)
+          }
+        }
+      } catch (err) {
+        console.error("[discord-channel] agent display failed:", err)
+      }
 
       return
     }
 
-    if (event.type === "session.status" && event.properties?.status?.type === "busy") {
+    if (
+      event.type === "session.status" &&
+      event.properties?.status?.type === "busy"
+    ) {
       const channelId = state.getChannelId()
       if (!channelId) return
       await discordClient.startTyping(channelId)

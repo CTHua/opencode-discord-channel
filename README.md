@@ -1,15 +1,16 @@
 # opencode-discord-channel
 
-An [OpenCode](https://opencode.ai) plugin that bridges a Discord bot to your OpenCode session. Send messages from Discord into your session and receive AI responses back — with agent display and switching via Discord embed buttons.
+An [OpenCode](https://opencode.ai) plugin that bridges a Discord bot to your OpenCode session. Send messages from Discord into your session and receive AI responses back — with agent display and switching via Discord dropdown menu.
 
 ## Features
 
 - **Bidirectional messaging**: Discord messages forwarded to OpenCode session; AI text responses sent back to Discord
 - **Agent display**: Current agent shown in Discord embed after each response
-- **Agent switching**: Click Discord buttons to switch between agents
+- **Agent switching**: Select from a dropdown menu to switch between agents (subagents hidden)
 - **Bot owner-only access control**: Only you can interact via Discord
 - **Long message support**: Responses > 2000 chars split intelligently, preserving code blocks
 - **Typing indicator**: Discord shows typing... while AI generates
+- **Persistent config**: Save bot token and settings to a config file — no env vars needed every time
 
 ## Requirements
 
@@ -37,19 +38,30 @@ Or with a specific version:
 
 ## Configuration
 
-Set these environment variables before starting OpenCode:
+### Option 1: Config File (Recommended)
+
+Create `~/.config/opencode/discord-channel.json`:
+
+```json
+{
+  "botToken": "your-bot-token-here",
+  "ownerId": "your-discord-user-id"
+}
+```
+
+### Option 2: Environment Variables
 
 ```bash
 export DISCORD_BOT_TOKEN="your-bot-token-here"
 export DISCORD_OWNER_ID="your-discord-user-id"
 ```
 
-Add them to your `.env` file or shell profile for persistence.
+Environment variables take priority over the config file.
 
 ### Discord Bot Setup
 
 1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
-2. Create a new application → Bot section → Reset Token to get your `DISCORD_BOT_TOKEN`
+2. Create a new application → Bot section → Reset Token to get your bot token
 3. Enable these **Privileged Gateway Intents**: Server Members Intent, Message Content Intent
 4. Copy your bot token
 5. Get your Discord User ID: User Settings → Advanced → Enable Developer Mode, then right-click your name → Copy User ID
@@ -59,18 +71,16 @@ Add them to your `.env` file or shell profile for persistence.
 
 ### Connect the Discord Bridge
 
-In OpenCode, run:
-
 ```
 /dc:connect <channel_id>
 ```
 
 Get the channel ID by right-clicking a Discord channel (with Developer Mode enabled) → Copy Channel ID.
 
-Example:
+After the first successful connection, the channel ID is saved. Next time you can just run:
 
 ```
-/dc:connect 1234567890123456789
+/dc:connect
 ```
 
 ### Disconnect
@@ -87,25 +97,26 @@ Example:
 
 ### Switch Agents from Discord
 
-After the bridge is connected, each AI response includes an embed with agent buttons. Click any button to switch the active agent for your next message.
+After the bridge is connected, each AI response includes a dropdown menu showing available agents. Select any agent to switch for your next message. Only primary agents are shown — subagents are hidden to keep the list clean.
 
 ## How It Works
 
 1. You type a message in the Discord channel
-2. The plugin forwards it to your OpenCode session with context tags
+2. The plugin forwards it to your OpenCode session
 3. OpenCode generates a response
 4. The response is sent back to Discord (split if > 2000 chars)
-5. An embed shows the current agent with clickable switch buttons
+5. A dropdown shows available agents for switching
 
 ## Compatible with oh-my-openagent
 
-The plugin reads available agents dynamically from OpenCode and displays them as Discord buttons. It works with any agent configuration in your `oh-my-openagent.json`.
+The plugin reads available agents dynamically from OpenCode and displays them in the dropdown. It works with any agent configuration in your `oh-my-openagent.json`.
 
 ## Security
 
-- Only messages from `DISCORD_OWNER_ID` are forwarded to the session
+- Only messages from the configured owner ID are forwarded to the session
 - The bot token is never logged or exposed
 - The bridge only connects to a single specified channel
+- Config file stored in user's home directory with standard permissions
 
 ## License
 

@@ -6,9 +6,22 @@ import { createConnectionState } from "./state"
 import type { DiscordMessage } from "./types"
 
 function createFullMockDiscordClient() {
-  let messageCallback: ((msg: DiscordMessage) => void | Promise<void>) | null = null
+  let messageCallback:
+    | ((msg: DiscordMessage) => void | Promise<void>)
+    | null = null
   let buttonCallback:
-    | ((customId: string, userId: string, username: string) => void | Promise<void>)
+    | ((
+        customId: string,
+        userId: string,
+        username: string,
+      ) => void | Promise<void>)
+    | null = null
+  let selectMenuCallback:
+    | ((
+        customId: string,
+        values: string[],
+        userId: string,
+      ) => void | Promise<void>)
     | null = null
 
   return {
@@ -16,19 +29,45 @@ function createFullMockDiscordClient() {
       messageCallback = cb
     },
     onButtonInteraction: (
-      cb: (customId: string, userId: string, username: string) => void | Promise<void>,
+      cb: (
+        customId: string,
+        userId: string,
+        username: string,
+      ) => void | Promise<void>,
     ) => {
       buttonCallback = cb
+    },
+    onSelectMenuInteraction: (
+      cb: (
+        customId: string,
+        values: string[],
+        userId: string,
+      ) => void | Promise<void>,
+    ) => {
+      selectMenuCallback = cb
     },
     triggerMessage: async (msg: DiscordMessage) => {
       await messageCallback?.(msg)
     },
-    triggerButton: async (customId: string, userId: string, username: string) => {
+    triggerButton: async (
+      customId: string,
+      userId: string,
+      username: string,
+    ) => {
       await buttonCallback?.(customId, userId, username)
+    },
+    triggerSelectMenu: async (
+      customId: string,
+      values: string[],
+      userId: string,
+    ) => {
+      await selectMenuCallback?.(customId, values, userId)
     },
     sendMessage: mock(async (_channelId: string, _content: string) => {}),
     startTyping: mock(async (_channelId: string) => {}),
-    sendButtons: mock(async (_channelId: string, _embed: any, _rows: any[]) => {}),
+    sendSelectMenu: mock(
+      async (_channelId: string, _embed: any, _rows: any[]) => {},
+    ),
   }
 }
 
@@ -95,7 +134,7 @@ describe("Integration: full message round-trip", () => {
     expect(discord.sendMessage.mock.calls[0]).toContain("Bot response here")
   })
 
-  it("Agent switch: button click → state updates → next prompt uses new agent", async () => {
+  it("Agent switch: select menu → state updates → next prompt uses new agent", async () => {
     const state = createConnectionState()
     state.connect({
       botToken: "tok",
@@ -117,7 +156,7 @@ describe("Integration: full message round-trip", () => {
       onAgentSwitch: agentSwitchCallback,
     })
 
-    await discord.triggerButton("agent_switch_oracle", "owner123", "Owner")
+    await discord.triggerSelectMenu("agent_select", ["oracle"], "owner123")
 
     expect(agentSwitchCallback).toHaveBeenCalledWith("oracle")
     expect(state.getCurrentAgent()).toBe("oracle")
@@ -131,7 +170,8 @@ describe("Integration: full message round-trip", () => {
     })
 
     expect(sessionPrompt.mock.calls.length).toBeGreaterThan(0)
-    const lastCall = sessionPrompt.mock.calls[sessionPrompt.mock.calls.length - 1][0]
+    const lastCall =
+      sessionPrompt.mock.calls[sessionPrompt.mock.calls.length - 1][0]
     expect(lastCall.agent).toBe("oracle")
   })
 

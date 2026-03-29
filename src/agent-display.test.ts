@@ -1,5 +1,9 @@
 import { describe, it, expect } from "bun:test"
-import { buildAgentEmbed, buildAgentButtons, parseButtonInteraction } from "./agent-display"
+import {
+  buildAgentEmbed,
+  buildAgentSelectMenu,
+  parseSelectInteraction,
+} from "./agent-display"
 import type { AgentInfo } from "./types"
 
 const sampleAgents: AgentInfo[] = [
@@ -36,86 +40,100 @@ describe("buildAgentEmbed", () => {
   })
 })
 
-describe("buildAgentButtons", () => {
+describe("buildAgentSelectMenu", () => {
   describe("given empty agent list", () => {
     it("returns empty array", () => {
-      const rows = buildAgentButtons([], "oracle")
+      const rows = buildAgentSelectMenu([], "oracle")
       expect(rows).toHaveLength(0)
     })
   })
 
-  describe("given agents up to 5", () => {
-    it("returns a single row", () => {
-      const rows = buildAgentButtons(sampleAgents, "oracle")
+  describe("given agents with mixed modes", () => {
+    it("filters out subagents", () => {
+      const rows = buildAgentSelectMenu(sampleAgents, "sisyphus")
       expect(rows).toHaveLength(1)
-    })
-    it("each agent gets one button", () => {
-      const rows = buildAgentButtons(sampleAgents, "oracle")
-      const totalButtons = rows.reduce((sum, row) => sum + row.toJSON().components.length, 0)
-      expect(totalButtons).toBe(sampleAgents.length)
+      const json = rows[0].toJSON()
+      const options = json.components[0].options
+      expect(options).toHaveLength(1)
+      expect(options[0].value).toBe("sisyphus")
     })
   })
 
-  describe("given more than 5 agents", () => {
-    it("splits into multiple rows with max 5 per row", () => {
-      const manyAgents: AgentInfo[] = Array.from({ length: 8 }, (_, i) => ({
-        name: `agent${i}`,
-        mode: "primary" as const,
-      }))
-      const rows = buildAgentButtons(manyAgents, "agent0")
-      expect(rows.length).toBeGreaterThan(1)
-      rows.forEach(row => {
-        expect(row.toJSON().components.length).toBeLessThanOrEqual(5)
-      })
+  describe("given only subagents", () => {
+    it("returns empty array", () => {
+      const subagentsOnly: AgentInfo[] = [
+        { name: "oracle", mode: "subagent" },
+        { name: "explore", mode: "subagent" },
+      ]
+      const rows = buildAgentSelectMenu(subagentsOnly, "oracle")
+      expect(rows).toHaveLength(0)
     })
+  })
 
-    it("total button count equals agent count", () => {
-      const manyAgents: AgentInfo[] = Array.from({ length: 8 }, (_, i) => ({
-        name: `agent${i}`,
-        mode: "primary" as const,
-      }))
-      const rows = buildAgentButtons(manyAgents, "agent0")
-      const totalButtons = rows.reduce((sum, row) => sum + row.toJSON().components.length, 0)
-      expect(totalButtons).toBe(8)
-    })
-
-    it("caps rows at 5 (max 25 buttons)", () => {
+  describe("given many primary agents", () => {
+    it("caps at 25 options", () => {
       const manyAgents: AgentInfo[] = Array.from({ length: 30 }, (_, i) => ({
         name: `agent${i}`,
         mode: "primary" as const,
       }))
-      const rows = buildAgentButtons(manyAgents, "agent0")
-      const totalButtons = rows.reduce((sum, row) => sum + row.toJSON().components.length, 0)
-
-      expect(rows).toHaveLength(5)
-      expect(totalButtons).toBe(25)
+      const rows = buildAgentSelectMenu(manyAgents, "agent0")
+      expect(rows).toHaveLength(1)
+      const json = rows[0].toJSON()
+      expect(json.components[0].options).toHaveLength(25)
     })
   })
 
   describe("given current agent", () => {
-    it("current agent button has different style (primary)", () => {
-      const rows = buildAgentButtons(sampleAgents, "oracle")
-      const allButtons = rows.flatMap(row => row.toJSON().components) as Array<{ custom_id?: string; style?: number }>
-      const oracleBtn = allButtons.find(b => b.custom_id === "agent_switch_oracle")
-      expect(oracleBtn?.style).toBe(1)
+    it("marks current agent as default", () => {
+      const agents: AgentInfo[] = [
+        { name: "sisyphus", mode: "primary" },
+        { name: "metis", mode: "primary" },
+      ]
+      const rows = buildAgentSelectMenu(agents, "metis")
+      const json = rows[0].toJSON()
+      const options = json.components[0].options
+      const metisOption = options.find(
+        (o: { value: string }) => o.value === "metis",
+      )
+      const sisyphusOption = options.find(
+        (o: { value: string }) => o.value === "sisyphus",
+      )
+      expect(metisOption?.default).toBe(true)
+      expect(sisyphusOption?.default).toBe(false)
     })
-    it("other agent buttons are secondary style", () => {
-      const rows = buildAgentButtons(sampleAgents, "oracle")
-      const allButtons = rows.flatMap(row => row.toJSON().components) as Array<{ custom_id?: string; style?: number }>
-      const sisyphusBtn = allButtons.find(b => b.custom_id === "agent_switch_sisyphus")
-      expect(sisyphusBtn?.style).toBe(2)
+  })
+
+  describe("given agents with descriptions", () => {
+    it("includes description in options", () => {
+      const agents: AgentInfo[] = [
+        {
+          name: "sisyphus",
+          mode: "primary",
+          description: "Main orchestrator",
+        },
+      ]
+      const rows = buildAgentSelectMenu(agents, "sisyphus")
+      const json = rows[0].toJSON()
+      expect(json.components[0].options[0].description).toBe(
+        "Main orchestrator",
+      )
     })
   })
 })
 
-describe("parseButtonInteraction", () => {
-  it("extracts agent name from agent_switch_ prefix", () => {
-    expect(parseButtonInteraction("agent_switch_oracle")).toBe("oracle")
-    expect(parseButtonInteraction("agent_switch_sisyphus")).toBe("sisyphus")
+describe("parseSelectInteraction", () => {
+  it("extracts agent name from select menu values", () => {
+    expect(parseSelectInteraction("agent_select", ["oracle"])).toBe("oracle")
+    expect(parseSelectInteraction("agent_select", ["sisyphus"])).toBe(
+      "sisyphus",
+    )
   })
 
-  it("returns null for non-agent-switch customIds", () => {
-    expect(parseButtonInteraction("some_other_button")).toBeNull()
-    expect(parseButtonInteraction("")).toBeNull()
+  it("returns null for non-matching customId", () => {
+    expect(parseSelectInteraction("other_menu", ["oracle"])).toBeNull()
+  })
+
+  it("returns null for empty values", () => {
+    expect(parseSelectInteraction("agent_select", [])).toBeNull()
   })
 })
