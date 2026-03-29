@@ -86,20 +86,38 @@ const plugin: Plugin = async (ctx) => {
     requestID: string,
     answers: QuestionAnswer[],
   ): Promise<void> {
-    const baseUrl = ctx.serverUrl.toString().replace(/\/$/, "")
-    const url = `${baseUrl}/question/${encodeURIComponent(requestID)}/reply`
-    log(`[question] reply POST ${url}`)
-    const resp = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ answers }),
-    })
-    if (!resp.ok) {
-      const body = await resp.text().catch(() => "")
-      throw new Error(`Question reply failed: ${resp.status} ${body}`)
+    log(`[question] reply requestID=${requestID}`)
+    const internalClient = (ctx.client as any)._client
+    if (internalClient?.post) {
+      const result = await internalClient.post({
+        url: `/question/${encodeURIComponent(requestID)}/reply`,
+        body: { answers },
+        headers: { "Content-Type": "application/json" },
+      })
+      log(
+        `[question] reply via internal client: ${JSON.stringify(result?.data ?? result?.error).slice(0, 200)}`,
+      )
+      if (result?.error) {
+        throw new Error(
+          `Question reply failed: ${JSON.stringify(result.error)}`,
+        )
+      }
+    } else {
+      const baseUrl = ctx.serverUrl.toString().replace(/\/$/, "")
+      const url = `${baseUrl}/question/${encodeURIComponent(requestID)}/reply`
+      log(`[question] reply POST ${url}`)
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers }),
+      })
+      if (!resp.ok) {
+        const body = await resp.text().catch(() => "")
+        throw new Error(`Question reply failed: ${resp.status} ${body}`)
+      }
     }
     questionRequests.delete(requestID)
-    log(`[question] reply POST success`)
+    log(`[question] reply success`)
   }
 
   async function fetchAgents(): Promise<AgentInfo[]> {
