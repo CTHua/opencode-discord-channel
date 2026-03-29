@@ -116,22 +116,6 @@ export function createOutboundBridge(deps: OutboundBridgeDeps): {
       if (allText.trim().length === 0) return
       await discordClient.sendMessage(channelId, allText)
       textBuffer.clear()
-
-      try {
-        const agents = await getCachedAgents()
-        if (agents.length > 1) {
-          const currentAgent =
-            state.getCurrentAgent() ?? agents[0]?.name ?? ""
-          const embed = display.buildAgentEmbed(currentAgent)
-          const rows = display.buildAgentSelectMenu(agents, currentAgent)
-          if (rows.length > 0) {
-            await discordClient.sendSelectMenu(channelId, embed, rows)
-          }
-        }
-      } catch (err) {
-        console.error("[discord-channel] agent display failed:", err)
-      }
-
       return
     }
 

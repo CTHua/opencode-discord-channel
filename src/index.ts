@@ -164,6 +164,11 @@ const plugin: Plugin = async (ctx) => {
         description:
           "(plugin: discord-channel) Show Discord bridge connection status",
       }
+      config.command["dc:agents"] = {
+        template: "[opencode-discord-channel plugin: show agent selector]",
+        description:
+          "(plugin: discord-channel) Show agent selector in Discord",
+      }
     },
 
     async "command.execute.before"(input, output) {
@@ -290,6 +295,34 @@ const plugin: Plugin = async (ctx) => {
         output.parts = [
           textPart(`Discord bridge status: ${statusText}`),
         ]
+        return
+      }
+
+      if (command === "dc:agents") {
+        if (!state.isConnected()) {
+          output.parts = [
+            textPart("Discord bridge not connected. Use /dc:connect first."),
+          ]
+          return
+        }
+        const channelId = state.getChannelId()
+        if (!channelId) return
+        try {
+          const agents = await fetchAgents()
+          if (agents.length > 1) {
+            const currentAgent =
+              state.getCurrentAgent() ?? agents[0]?.name ?? ""
+            const embed = buildAgentEmbed(currentAgent)
+            const rows = buildAgentSelectMenu(agents, currentAgent)
+            if (rows.length > 0) {
+              await discordClient.sendSelectMenu(channelId, embed, rows)
+            }
+          }
+          output.parts = [textPart("Agent selector sent to Discord.")]
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : "Unknown error"
+          output.parts = [textPart(`Failed to show agents: ${msg}`)]
+        }
         return
       }
     },
