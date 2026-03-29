@@ -4,6 +4,7 @@ import type {
   ActionRowBuilder,
   ButtonBuilder,
   StringSelectMenuBuilder,
+  MessageActionRowComponentBuilder,
 } from "discord.js"
 import { TextChannel } from "discord.js"
 import { splitMessage } from "./message-splitter"
@@ -20,6 +21,12 @@ export function createDiscordClient() {
     | null = null
   let selectMenuHandler:
     | ((customId: string, values: string[], userId: string) => void)
+    | null = null
+  let rawButtonHandler:
+    | ((interaction: any) => Promise<boolean>)
+    | null = null
+  let modalSubmitHandler:
+    | ((customId: string, fields: Map<string, string>, userId: string) => void)
     | null = null
 
   async function getChannel(channelId: string): Promise<TextChannel> {
@@ -62,25 +69,55 @@ export function createDiscordClient() {
       })
 
       discordClient.on("interactionCreate", async (interaction: any) => {
-        try {
-          await interaction.deferUpdate()
-        } catch {}
+        const onModal = modalSubmitHandler
+        const onRawButton = rawButtonHandler
+        const onButton = buttonHandler
+        const onSelect = selectMenuHandler
 
-        if (interaction.isStringSelectMenu?.() && selectMenuHandler) {
-          selectMenuHandler(
-            interaction.customId,
-            interaction.values,
-            interaction.user.id,
-          )
+        if (interaction.isModalSubmit?.()) {
+          try {
+            await interaction.deferUpdate()
+          } catch {}
+          if (onModal) {
+            const fields = new Map<string, string>()
+            for (const [key, comp] of interaction.fields.fields) {
+              fields.set(comp.customId ?? key, comp.value)
+            }
+            onModal(interaction.customId, fields, interaction.user.id)
+          }
           return
         }
 
-        if (interaction.isButton?.() && buttonHandler) {
-          buttonHandler(
-            interaction.customId,
-            interaction.user.id,
-            interaction.user.username,
-          )
+        if (interaction.isButton?.()) {
+          if (onRawButton) {
+            const handled = await onRawButton(interaction)
+            if (handled) return
+          }
+          try {
+            await interaction.deferUpdate()
+          } catch {}
+          if (onButton) {
+            onButton(
+              interaction.customId,
+              interaction.user.id,
+              interaction.user.username,
+            )
+          }
+          return
+        }
+
+        if (interaction.isStringSelectMenu?.()) {
+          try {
+            await interaction.deferUpdate()
+          } catch {}
+          if (onSelect) {
+            onSelect(
+              interaction.customId,
+              interaction.values,
+              interaction.user.id,
+            )
+          }
+          return
         }
       })
 
@@ -173,6 +210,31 @@ export function createDiscordClient() {
       handler: (customId: string, values: string[], userId: string) => void,
     ): void {
       selectMenuHandler = handler
+    },
+
+    onRawButtonInteraction(
+      handler: (interaction: any) => Promise<boolean>,
+    ): void {
+      rawButtonHandler = handler
+    },
+
+    onModalSubmit(
+      handler: (
+        customId: string,
+        fields: Map<string, string>,
+        userId: string,
+      ) => void,
+    ): void {
+      modalSubmitHandler = handler
+    },
+
+    async sendQuestion(
+      channelId: string,
+      embeds: EmbedBuilder[],
+      rows: ActionRowBuilder<MessageActionRowComponentBuilder>[],
+    ): Promise<void> {
+      const channel = await getChannel(channelId)
+      await channel.send({ embeds, components: rows })
     },
 
     getBotUserId(): string | null {

@@ -37,6 +37,7 @@ function createFullMockDiscordClient() {
     ) => {
       buttonCallback = cb
     },
+    onRawButtonInteraction: mock(() => {}),
     onSelectMenuInteraction: (
       cb: (
         customId: string,
@@ -65,6 +66,7 @@ function createFullMockDiscordClient() {
     },
     sendMessage: mock(async (_channelId: string, _content: string) => {}),
     startTyping: mock(async (_channelId: string) => {}),
+    onModalSubmit: mock(() => {}),
     sendSelectMenu: mock(
       async (_channelId: string, _embed: any, _rows: any[]) => {},
     ),
@@ -90,6 +92,8 @@ describe("Integration: full message round-trip", () => {
       state,
       sessionPrompt,
       onAgentSwitch: mock((_name: string) => {}),
+      onQuestionReply: mock(async () => {}),
+      getQuestionInfo: () => null,
     })
 
     const fetchAgents = mock(async () => [
@@ -154,6 +158,8 @@ describe("Integration: full message round-trip", () => {
       state,
       sessionPrompt,
       onAgentSwitch: agentSwitchCallback,
+      onQuestionReply: mock(async () => {}),
+      getQuestionInfo: () => null,
     })
 
     await discord.triggerSelectMenu("agent_select", ["oracle"], "owner123")
@@ -243,6 +249,8 @@ describe("Integration: full message round-trip", () => {
       state,
       sessionPrompt,
       onAgentSwitch: mock((_name: string) => {}),
+      onQuestionReply: mock(async () => {}),
+      getQuestionInfo: () => null,
     })
 
     await discord.triggerMessage({

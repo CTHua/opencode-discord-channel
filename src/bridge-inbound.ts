@@ -1,6 +1,11 @@
 import { parseSelectInteraction } from "./agent-display"
+import {
+  parseQuestionInteraction,
+  buildCustomAnswerModal,
+} from "./question-display"
 import type { DiscordClientWrapper } from "./discord-client"
 import type { ConnectionStateManager } from "./state"
+import type { QuestionAnswer, QuestionInfo } from "./types"
 
 type SessionPromptFn = (params: {
   sessionID: string
@@ -8,10 +13,19 @@ type SessionPromptFn = (params: {
   agent?: string
 }) => Promise<void>
 
+type QuestionReplyFn = (
+  requestID: string,
+  answers: QuestionAnswer[],
+) => Promise<void>
+
 type InboundBridgeDeps = {
   discordClient: Pick<
     DiscordClientWrapper,
-    "onMessage" | "onButtonInteraction" | "onSelectMenuInteraction"
+    | "onMessage"
+    | "onButtonInteraction"
+    | "onSelectMenuInteraction"
+    | "onRawButtonInteraction"
+    | "onModalSubmit"
   >
   state: Pick<
     ConnectionStateManager,
@@ -21,13 +35,29 @@ type InboundBridgeDeps = {
     | "getOwnerId"
     | "getBotUserId"
     | "getCurrentAgent"
+    | "setQuestionAnswer"
+    | "isQuestionComplete"
+    | "getPendingQuestion"
+    | "removePendingQuestion"
   >
   sessionPrompt: SessionPromptFn
   onAgentSwitch: (agentName: string) => void
+  onQuestionReply: QuestionReplyFn
+  getQuestionInfo: (
+    requestID: string,
+    questionIndex: number,
+  ) => QuestionInfo | null
 }
 
 export function createInboundBridge(deps: InboundBridgeDeps): void {
-  const { discordClient, state, sessionPrompt, onAgentSwitch } = deps
+  const {
+    discordClient,
+    state,
+    sessionPrompt,
+    onAgentSwitch,
+    onQuestionReply,
+    getQuestionInfo,
+  } = deps
   const fs = require("fs")
   const logFile = "/tmp/opencode-discord-channel.log"
 
@@ -38,6 +68,25 @@ export function createInboundBridge(deps: InboundBridgeDeps): void {
   }
 
   log("[init] inbound bridge created")
+
+  async function tryCompleteQuestion(requestID: string): Promise<void> {
+    if (!state.isQuestionComplete(requestID)) return
+    const pending = state.getPendingQuestion(requestID)
+    if (!pending) return
+
+    const answers = pending.answers.filter(
+      (a): a is QuestionAnswer => a !== null,
+    )
+    log(`[question] completing requestID=${requestID} answers=${JSON.stringify(answers)}`)
+
+    try {
+      await onQuestionReply(requestID, answers)
+      log(`[question] reply success requestID=${requestID}`)
+    } catch (err) {
+      log(`[question] reply FAILED requestID=${requestID}: ${err}`)
+    }
+    state.removePendingQuestion(requestID)
+  }
 
   discordClient.onMessage(async (msg) => {
     log(
@@ -98,10 +147,62 @@ export function createInboundBridge(deps: InboundBridgeDeps): void {
     if (!state.isConnected()) return
     if (userId !== state.getOwnerId()) return
 
+    const questionParsed = parseQuestionInteraction(customId)
+    if (questionParsed?.type === "select") {
+      log(`[question] select requestID=${questionParsed.requestID} idx=${questionParsed.questionIndex} values=${JSON.stringify(values)}`)
+      state.setQuestionAnswer(
+        questionParsed.requestID,
+        questionParsed.questionIndex,
+        values,
+      )
+      await tryCompleteQuestion(questionParsed.requestID)
+      return
+    }
+
     const agentName = parseSelectInteraction(customId, values)
     if (!agentName) return
 
     log(`[select-menu] agent switch to: ${agentName}`)
     onAgentSwitch(agentName)
+  })
+
+  discordClient.onRawButtonInteraction(async (interaction: any) => {
+    if (!state.isConnected()) return false
+    if (interaction.user.id !== state.getOwnerId()) return false
+
+    const parsed = parseQuestionInteraction(interaction.customId)
+    if (parsed?.type !== "custom") return false
+
+    const questionInfo = getQuestionInfo(parsed.requestID, parsed.questionIndex)
+    const header = questionInfo?.header ?? "Answer"
+
+    const modal = buildCustomAnswerModal(
+      parsed.requestID,
+      parsed.questionIndex,
+      header,
+    )
+
+    try {
+      await interaction.showModal(modal)
+    } catch (err) {
+      log(`[question] showModal failed: ${err}`)
+    }
+    return true
+  })
+
+  discordClient.onModalSubmit((customId, fields, userId) => {
+    if (!state.isConnected()) return
+    if (userId !== state.getOwnerId()) return
+
+    const parsed = parseQuestionInteraction(customId)
+    if (parsed?.type !== "modal") return
+
+    const inputKey = `q_input_${parsed.requestID}_${parsed.questionIndex}`
+    const value = fields.get(inputKey)
+    if (!value) return
+
+    log(`[question] modal answer requestID=${parsed.requestID} idx=${parsed.questionIndex} value="${value.slice(0, 50)}"`)
+    state.setQuestionAnswer(parsed.requestID, parsed.questionIndex, [value])
+    tryCompleteQuestion(parsed.requestID)
   })
 }

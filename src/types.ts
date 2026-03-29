@@ -40,3 +40,38 @@ export interface AgentInfo {
   color?: string
   description?: string
 }
+
+// Question types — mirrors @opencode-ai/sdk/v2 QuestionRequest
+// Defined locally to avoid hard v2 dependency in the plugin type surface.
+
+export interface QuestionOption {
+  label: string
+  description: string
+}
+
+export interface QuestionInfo {
+  question: string
+  header: string
+  options: QuestionOption[]
+  multiple?: boolean
+  custom?: boolean
+}
+
+export interface QuestionRequest {
+  id: string
+  sessionID: string
+  questions: QuestionInfo[]
+  tool?: {
+    messageID: string
+    callID: string
+  }
+}
+
+export type QuestionAnswer = string[]
+
+export interface PendingQuestion {
+  requestID: string
+  sessionID: string
+  totalQuestions: number
+  answers: (QuestionAnswer | null)[]
+}

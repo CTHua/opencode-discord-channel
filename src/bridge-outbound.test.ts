@@ -388,34 +388,40 @@ describe("createOutboundBridge", () => {
     fetchAgents = mock(async () => {
       throw new Error("agent list failed")
     })
-    const bridge = createOutboundBridge({
-      discordClient: discord as any,
-      state: state as any,
-      agentDisplay: agentDisplay as any,
-      fetchAgents,
-    })
-    handler = bridge.handleEvent
+    const originalError = console.error
+    console.error = mock(() => {}) as any
+    try {
+      const bridge = createOutboundBridge({
+        discordClient: discord as any,
+        state: state as any,
+        agentDisplay: agentDisplay as any,
+        fetchAgents,
+      })
+      handler = bridge.handleEvent
 
-    await handler({
-      type: "message.part.updated",
-      properties: {
-        part: {
-          id: "part1",
-          sessionID: "ses_main",
-          messageID: "msg1",
-          type: "text",
-          text: "hi",
+      await handler({
+        type: "message.part.updated",
+        properties: {
+          part: {
+            id: "part1",
+            sessionID: "ses_main",
+            messageID: "msg1",
+            type: "text",
+            text: "hi",
+          },
         },
-      },
-    })
+      })
 
-    await expect(
-      handler({
-        type: "session.idle",
-        properties: { sessionID: "ses_main" },
-      }),
-    ).resolves.toBeUndefined()
-    expect(discord.sendMessage).toHaveBeenCalledTimes(1)
-    expect(discord.sendSelectMenu).not.toHaveBeenCalled()
+      await expect(
+        handler({
+          type: "session.idle",
+          properties: { sessionID: "ses_main" },
+        }),
+      ).resolves.toBeUndefined()
+      expect(discord.sendMessage).toHaveBeenCalledTimes(1)
+      expect(discord.sendSelectMenu).not.toHaveBeenCalled()
+    } finally {
+      console.error = originalError
+    }
   })
 })

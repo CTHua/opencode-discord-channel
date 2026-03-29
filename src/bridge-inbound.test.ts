@@ -54,6 +54,7 @@ function createMockDiscordClient() {
       messageCallback = cb
     },
     onButtonInteraction: mock(() => {}),
+    onRawButtonInteraction: mock(() => {}),
     onSelectMenuInteraction: (
       cb: (
         customId: string,
@@ -71,6 +72,7 @@ function createMockDiscordClient() {
     ) => selectMenuCallback?.(customId, values, userId),
     sendMessage: mock(async () => {}),
     startTyping: mock(async () => {}),
+    onModalSubmit: mock(() => {}),
   }
 }
 
@@ -100,6 +102,8 @@ describe("createInboundBridge", () => {
         state: state as any,
         sessionPrompt,
         onAgentSwitch,
+        onQuestionReply: mock(async () => {}),
+        getQuestionInfo: () => null,
       })
 
       await discord.triggerMessage(ownerMessage)
@@ -117,6 +121,8 @@ describe("createInboundBridge", () => {
         state: state as any,
         sessionPrompt,
         onAgentSwitch,
+        onQuestionReply: mock(async () => {}),
+        getQuestionInfo: () => null,
       })
 
       await discord.triggerMessage(ownerMessage)
@@ -133,6 +139,8 @@ describe("createInboundBridge", () => {
         state: state as any,
         sessionPrompt,
         onAgentSwitch,
+        onQuestionReply: mock(async () => {}),
+        getQuestionInfo: () => null,
       })
 
       await discord.triggerMessage(ownerMessage)
@@ -149,6 +157,8 @@ describe("createInboundBridge", () => {
         state: state as any,
         sessionPrompt,
         onAgentSwitch,
+        onQuestionReply: mock(async () => {}),
+        getQuestionInfo: () => null,
       })
 
       await discord.triggerMessage({
@@ -170,6 +180,8 @@ describe("createInboundBridge", () => {
         state: state as any,
         sessionPrompt,
         onAgentSwitch,
+        onQuestionReply: mock(async () => {}),
+        getQuestionInfo: () => null,
       })
 
       await discord.triggerMessage({
@@ -190,6 +202,8 @@ describe("createInboundBridge", () => {
         state: state as any,
         sessionPrompt,
         onAgentSwitch,
+        onQuestionReply: mock(async () => {}),
+        getQuestionInfo: () => null,
       })
 
       await discord.triggerMessage({
@@ -210,6 +224,8 @@ describe("createInboundBridge", () => {
         state: state as any,
         sessionPrompt,
         onAgentSwitch,
+        onQuestionReply: mock(async () => {}),
+        getQuestionInfo: () => null,
       })
 
       await discord.triggerMessage({
@@ -230,6 +246,8 @@ describe("createInboundBridge", () => {
         state: state as any,
         sessionPrompt,
         onAgentSwitch,
+        onQuestionReply: mock(async () => {}),
+        getQuestionInfo: () => null,
       })
 
       await discord.triggerMessage(ownerMessage)
@@ -247,6 +265,8 @@ describe("createInboundBridge", () => {
         state: state as any,
         sessionPrompt,
         onAgentSwitch,
+        onQuestionReply: mock(async () => {}),
+        getQuestionInfo: () => null,
       })
 
       await discord.triggerSelectMenu(
@@ -266,6 +286,8 @@ describe("createInboundBridge", () => {
         state: state as any,
         sessionPrompt,
         onAgentSwitch,
+        onQuestionReply: mock(async () => {}),
+        getQuestionInfo: () => null,
       })
 
       await discord.triggerSelectMenu(
@@ -285,6 +307,8 @@ describe("createInboundBridge", () => {
         state: state as any,
         sessionPrompt,
         onAgentSwitch,
+        onQuestionReply: mock(async () => {}),
+        getQuestionInfo: () => null,
       })
 
       await discord.triggerSelectMenu(

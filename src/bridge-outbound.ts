@@ -1,7 +1,11 @@
 import { buildAgentSelectMenu, buildAgentEmbed } from "./agent-display"
+import {
+  buildQuestionEmbed,
+  buildQuestionComponents,
+} from "./question-display"
 import type { DiscordClientWrapper } from "./discord-client"
 import type { ConnectionStateManager } from "./state"
-import type { AgentInfo } from "./types"
+import type { AgentInfo, QuestionRequest } from "./types"
 
 type AgentDisplayFunctions = {
   buildAgentEmbed: typeof buildAgentEmbed
@@ -11,11 +15,15 @@ type AgentDisplayFunctions = {
 type OutboundBridgeDeps = {
   discordClient: Pick<
     DiscordClientWrapper,
-    "sendMessage" | "startTyping" | "sendSelectMenu"
+    "sendMessage" | "startTyping" | "sendSelectMenu" | "sendQuestion"
   >
   state: Pick<
     ConnectionStateManager,
-    "isConnected" | "getSessionId" | "getChannelId" | "getCurrentAgent"
+    | "isConnected"
+    | "getSessionId"
+    | "getChannelId"
+    | "getCurrentAgent"
+    | "addPendingQuestion"
   >
   agentDisplay?: AgentDisplayFunctions
   fetchAgents: () => Promise<AgentInfo[]>
@@ -41,6 +49,10 @@ type OpenCodeEvent =
   | {
       type: "session.status"
       properties?: { sessionID?: string; status?: { type?: string } }
+    }
+  | {
+      type: "question.asked"
+      properties?: QuestionRequest
     }
 
 export function createOutboundBridge(deps: OutboundBridgeDeps): {
@@ -119,6 +131,29 @@ export function createOutboundBridge(deps: OutboundBridgeDeps): {
         console.error("[discord-channel] agent display failed:", err)
       }
 
+      return
+    }
+
+    if (event.type === "question.asked") {
+      const req = event.properties
+      if (!req || !req.id || !req.questions?.length) return
+      if (req.sessionID !== connectedSessionId) return
+
+      const channelId = state.getChannelId()
+      if (!channelId) return
+
+      state.addPendingQuestion(req.id, req.sessionID, req.questions.length)
+
+      for (let i = 0; i < req.questions.length; i++) {
+        const q = req.questions[i]
+        const embed = buildQuestionEmbed(q, i, req.questions.length)
+        const components = buildQuestionComponents(q, req.id, i)
+        try {
+          await discordClient.sendQuestion(channelId, [embed], components)
+        } catch (err) {
+          console.error("[discord-channel] question display failed:", err)
+        }
+      }
       return
     }
 

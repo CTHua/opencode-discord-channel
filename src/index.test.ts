@@ -1,4 +1,16 @@
-import { describe, it, expect, beforeEach, afterAll } from "bun:test"
+import { describe, it, expect, beforeEach, afterAll, mock } from "bun:test"
+
+mock.module("./config", () => ({
+  resolveConfig: () => ({
+    botToken: process.env.DISCORD_BOT_TOKEN,
+    ownerId: process.env.DISCORD_OWNER_ID,
+    defaultChannelId: undefined,
+  }),
+  getConfigPath: () => "/tmp/opencode-discord-channel.json",
+  loadConfig: () => ({}),
+  saveConfig: mock(() => {}),
+  updateConfig: mock((partial: any) => partial),
+}))
 
 const pluginModule = await import("./index")
 const plugin = pluginModule.default

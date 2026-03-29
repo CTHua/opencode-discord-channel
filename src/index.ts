@@ -8,7 +8,7 @@ import { buildAgentEmbed, buildAgentSelectMenu } from "./agent-display"
 import { resolveConfig, updateConfig, getConfigPath } from "./config"
 import type { DiscordClientWrapper } from "./discord-client"
 import type { ConnectionStateManager } from "./state"
-import type { AgentInfo } from "./types"
+import type { AgentInfo, QuestionAnswer, QuestionRequest } from "./types"
 import { textPart } from "./types"
 
 let activeDiscordClient: DiscordClientWrapper | null = null
@@ -41,6 +41,7 @@ const plugin: Plugin = async (ctx) => {
   }
 
   let outbound: ReturnType<typeof createOutboundBridge> | null = null
+  const questionRequests = new Map<string, QuestionRequest>()
 
   async function promptSession(params: {
     sessionID: string
@@ -79,6 +80,26 @@ const plugin: Plugin = async (ctx) => {
         throw err2
       }
     }
+  }
+
+  async function replyQuestion(
+    requestID: string,
+    answers: QuestionAnswer[],
+  ): Promise<void> {
+    const baseUrl = ctx.serverUrl.toString().replace(/\/$/, "")
+    const url = `${baseUrl}/question/${encodeURIComponent(requestID)}/reply`
+    log(`[question] reply POST ${url}`)
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ answers }),
+    })
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => "")
+      throw new Error(`Question reply failed: ${resp.status} ${body}`)
+    }
+    questionRequests.delete(requestID)
+    log(`[question] reply POST success`)
   }
 
   async function fetchAgents(): Promise<AgentInfo[]> {
@@ -210,6 +231,11 @@ const plugin: Plugin = async (ctx) => {
                 ],
               }).catch(() => {})
             },
+            onQuestionReply: replyQuestion,
+            getQuestionInfo: (requestID, questionIndex) => {
+              const req = questionRequests.get(requestID)
+              return req?.questions[questionIndex] ?? null
+            },
           })
 
           output.parts = [
@@ -251,6 +277,14 @@ const plugin: Plugin = async (ctx) => {
     },
 
     async event({ event }) {
+      const evt = event as { type: string; properties?: any }
+      if (
+        evt.type === "question.asked" &&
+        evt.properties?.id &&
+        evt.properties?.questions
+      ) {
+        questionRequests.set(evt.properties.id, evt.properties)
+      }
       if (activeEventHandler) {
         await activeEventHandler(event)
       }

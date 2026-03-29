@@ -45,18 +45,10 @@ const mockClientInstance: any = {
 
 // mock.module MUST be called before the dynamic import — ordering is critical for bun's module mock
 mock.module("discord.js", () => ({
-  Client: class MockClient {
-    login = mockLogin
-    destroy = mockClientDestroyFn
-    on = mockClientOn
-    once = mockClientOnce
-    off = mockClientOff
-    user = mockBotUser
-    channels = {
-      cache: { get: mockCacheGet },
-      fetch: mockChannelFetch,
-    }
-  },
+  Client: function MockClient(this: unknown) {
+    return mockClientInstance as any
+  } as any,
+  TextChannel: class MockTextChannel {},
   GatewayIntentBits: {
     Guilds: 1,
     GuildMessages: 2,
@@ -68,7 +60,7 @@ const { createDiscordClient } = await import("./discord-client")
 
 function simulateReady() {
   mockClientOnce.mockImplementation((_event: string, cb: any) => {
-    if (_event === "clientReady" || _event === "ready") setTimeout(cb, 0)
+    if (_event === "clientReady" || _event === "ready") cb()
     return mockClientInstance
   })
 }

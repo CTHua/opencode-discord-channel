@@ -1,4 +1,9 @@
-import type { BridgeConfig, ConnectionState } from "./types"
+import type {
+  BridgeConfig,
+  ConnectionState,
+  PendingQuestion,
+  QuestionAnswer,
+} from "./types"
 
 export function createConnectionState() {
   let state: ConnectionState = {
@@ -9,6 +14,8 @@ export function createConnectionState() {
     botUserId: null,
     currentAgent: null,
   }
+
+  const pendingQuestions = new Map<string, PendingQuestion>()
 
   return {
     connect(config: BridgeConfig): void {
@@ -67,6 +74,46 @@ export function createConnectionState() {
 
     getCurrentAgent(): string | null {
       return state.currentAgent
+    },
+
+    addPendingQuestion(
+      requestID: string,
+      sessionID: string,
+      totalQuestions: number,
+    ): void {
+      pendingQuestions.set(requestID, {
+        requestID,
+        sessionID,
+        totalQuestions,
+        answers: Array.from({ length: totalQuestions }, () => null),
+      })
+    },
+
+    setQuestionAnswer(
+      requestID: string,
+      questionIndex: number,
+      answer: QuestionAnswer,
+    ): PendingQuestion | null {
+      const pending = pendingQuestions.get(requestID)
+      if (!pending) return null
+      if (questionIndex < 0 || questionIndex >= pending.totalQuestions)
+        return null
+      pending.answers[questionIndex] = answer
+      return pending
+    },
+
+    getPendingQuestion(requestID: string): PendingQuestion | null {
+      return pendingQuestions.get(requestID) ?? null
+    },
+
+    removePendingQuestion(requestID: string): void {
+      pendingQuestions.delete(requestID)
+    },
+
+    isQuestionComplete(requestID: string): boolean {
+      const pending = pendingQuestions.get(requestID)
+      if (!pending) return false
+      return pending.answers.every((a) => a !== null)
     },
   }
 }
