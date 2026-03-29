@@ -18,7 +18,16 @@
     "typecheck": "tsc --noEmit"
   },
   "keywords": ["opencode", "discord", "plugin", "channel", "bridge"],
+  "author": "CTHua",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CTHua/opencode-discord-channel.git"
+  },
+  "homepage": "https://github.com/CTHua/opencode-discord-channel#readme",
+  "bugs": {
+    "url": "https://github.com/CTHua/opencode-discord-channel/issues"
+  },
   "dependencies": {
     "discord.js": "^14.0.0"
   },
