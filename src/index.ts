@@ -241,11 +241,11 @@ const plugin: Plugin = async (ctx) => {
 
           discordClient.onSlashCommand(async (command, interaction) => {
             if (command === "agents") {
-              const ch = state.getChannelId()
-              if (!ch) {
+              if (!state.isConnected()) {
                 await interaction.reply({ content: "Not connected.", ephemeral: true })
                 return
               }
+              const ch = interaction.channelId as string
               await interaction.deferReply({ ephemeral: true })
               try {
                 const agents = await fetchAgents()
