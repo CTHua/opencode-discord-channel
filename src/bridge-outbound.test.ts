@@ -33,6 +33,7 @@ function createMockState(
 function createMockDiscordClient() {
   return {
     sendMessage: mock(async (_channelId: string, _content: string) => {}),
+    sendEmbed: mock(async (_channelId: string, _embed: any) => {}),
     startTyping: mock(async (_channelId: string) => {}),
     sendSelectMenu: mock(
       async (_channelId: string, _embed: any, _rows: any[]) => "msg_menu",

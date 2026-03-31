@@ -3,6 +3,7 @@ import {
   buildQuestionEmbed,
   buildQuestionComponents,
 } from "./question-display"
+import { parseContentWithTables } from "./table-parser"
 import type { DiscordClientWrapper } from "./discord-client"
 import type { ConnectionStateManager } from "./state"
 import type { AgentInfo, QuestionRequest } from "./types"
@@ -15,7 +16,7 @@ type AgentDisplayFunctions = {
 type OutboundBridgeDeps = {
   discordClient: Pick<
     DiscordClientWrapper,
-    "sendMessage" | "startTyping" | "sendSelectMenu" | "sendQuestion" | "deleteMessage"
+    "sendMessage" | "sendEmbed" | "startTyping" | "sendSelectMenu" | "sendQuestion" | "deleteMessage"
   >
   state: Pick<
     ConnectionStateManager,
@@ -124,7 +125,16 @@ export function createOutboundBridge(deps: OutboundBridgeDeps): {
 
       const allText = [...textBuffer.values()].join("\n\n")
       if (allText.trim().length === 0) return
-      await discordClient.sendMessage(channelId, allText)
+
+      const segments = parseContentWithTables(allText)
+      for (const segment of segments) {
+        if (segment.type === "text") {
+          await discordClient.sendMessage(channelId, segment.content)
+        } else {
+          await discordClient.sendEmbed(channelId, segment.embed)
+        }
+      }
+
       textBuffer.clear()
       return
     }
